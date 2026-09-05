@@ -1,0 +1,171 @@
+// Prisma schema — quản lý xưởng in 3D nhỏ (đơn hàng, chi phí, tính giá)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Sku {
+  DEN
+  DO_CHOI
+  MOC_KHOA
+  KHAC
+}
+
+enum OrderStatus {
+  PENDING
+  IN_PRODUCTION
+  SHIPPED
+  COMPLETED
+  CANCELLED
+}
+
+enum ExpenseCategory {
+  NGUYEN_LIEU
+  BAO_BI_VAN_CHUYEN
+  SAN_XUAT_CHUNG
+  TAI_SAN_CO_DINH
+}
+
+model Order {
+  id                 String      @id @default(cuid())
+  customerName       String
+  sku                Sku
+  productName        String
+  quantity           Int
+  unitPrice          Decimal     @db.Decimal(12, 0)
+  unitCost           Decimal?    @db.Decimal(12, 0)
+  unitProductionCost Decimal?    @db.Decimal(12, 0)
+  unitOtherCost      Decimal?    @db.Decimal(12, 0)
+  unitCommissionCost Decimal?    @db.Decimal(12, 0)
+  total              Decimal     @db.Decimal(12, 0)
+  depositAmount      Decimal     @default(0) @db.Decimal(12, 0)
+  orderDate          DateTime
+  status             OrderStatus @default(PENDING)
+  note               String?
+  productId          String?
+  product            Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  salespersonId      String?
+  salesperson        Salesperson? @relation(fields: [salespersonId], references: [id], onDelete: SetNull)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([orderDate])
+  @@index([status])
+  @@index([sku])
+  @@index([productId])
+  @@index([salespersonId])
+}
+
+// Người bán hàng — gắn với đơn hàng để theo dõi hoa hồng theo từng người.
+model Salesperson {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+
+model Expense {
+  id              String          @id @default(cuid())
+  category        ExpenseCategory
+  amount          Decimal         @db.Decimal(12, 0)
+  date            DateTime
+  note            String?
+  expenseSourceId String?
+  expenseSource   ExpenseSource?  @relation(fields: [expenseSourceId], references: [id], onDelete: SetNull)
+  createdAt       DateTime        @default(now())
+
+  @@index([date])
+  @@index([category])
+  @@index([expenseSourceId])
+}
+
+// Nguồn chi — ai/quỹ nào đã bỏ tiền ra chi khoản này, dùng để tổng hợp chi phí theo từng người.
+model ExpenseSource {
+  id        String    @id @default(cuid())
+  name      String
+  createdAt DateTime  @default(now())
+  expenses  Expense[]
+}
+
+// Đối tác chia lợi nhuận — lợi nhuận hằng tháng chia đều cho các đối tác, cộng thêm hoa hồng
+// (khớp theo tên với Salesperson) và chi phí đã ứng trước (khớp theo tên với ExpenseSource) của từng người.
+model Partner {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+}
+
+// Danh mục đầu tư tài sản cố định — theo dõi riêng, không tính vào chi phí vận hành hàng tháng.
+model FixedAsset {
+  id           String   @id @default(cuid())
+  name         String
+  price        Decimal  @db.Decimal(12, 0)
+  purchaseDate DateTime
+  note         String?
+  createdAt    DateTime @default(now())
+
+  @@index([purchaseDate])
+}
+
+// Loại máy in — thông số công suất/giá điện/giá máy/tuổi thọ dùng chung cho nhiều sản phẩm.
+// Sửa ở đây sẽ áp dụng ngay cho mọi sản phẩm đang dùng loại máy này.
+model Printer {
+  id                     String    @id @default(cuid())
+  name                   String
+  machineWattage         Decimal   @db.Decimal(10, 2)
+  electricityPricePerKwh Decimal   @db.Decimal(12, 0)
+  machinePrice           Decimal   @db.Decimal(12, 0)
+  machineLifetimeHours   Decimal   @db.Decimal(10, 2)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  products               Product[]
+}
+
+// Loại nhựa in — dùng trong công cụ Máy tính giá (báo giá nhanh), theo dõi giá/kg và tồn kho.
+model Material {
+  id             String   @id @default(cuid())
+  name           String
+  type           String?
+  pricePerKg     Decimal  @db.Decimal(12, 0)
+  remainingGram  Decimal  @default(0) @db.Decimal(10, 2)
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// Phụ kiện — chi phí phụ kiện tái sử dụng khi tính giá nhanh (VD: đèn LED, pin, dây điện...).
+model Accessory {
+  id        String   @id @default(cuid())
+  name      String
+  price     Decimal  @db.Decimal(12, 0)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Danh mục sản phẩm — công thức tính chi phí/giá bán theo từng loại sản phẩm, dùng để tự điền khi tạo đơn hàng.
+// Chi phí sản xuất chung (điện, khấu hao) được tính động từ Printer liên kết, không lưu cứng ở đây.
+model Product {
+  id                    String   @id @default(cuid())
+  name                  String
+  sku                   Sku
+  filamentWeightGram    Decimal  @db.Decimal(10, 2)
+  filamentPricePerKg    Decimal  @db.Decimal(12, 0)
+  printHours            Decimal  @db.Decimal(10, 2)
+  otherCost             Decimal  @db.Decimal(12, 0)
+  otherCostNote         String?
+  commissionCost        Decimal  @default(0) @db.Decimal(12, 0)
+  marginPercent         Decimal  @db.Decimal(6, 2)
+  printerId             String
+  printer               Printer  @relation(fields: [printerId], references: [id], onDelete: Restrict)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  orders                Order[]
+
+  @@index([printerId])
+}
