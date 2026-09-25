@@ -10,6 +10,7 @@ import {
   BadgePercent,
   Scale,
   Sparkles,
+  MousePointerClick,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -23,6 +24,7 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/profit-split", label: "Chia lợi nhuận", icon: Scale },
   { href: "/calculator", label: "Máy tính giá", icon: Sparkles },
   { href: "/pricing", label: "Tính giá", icon: Calculator },
+  { href: "/clicker-generator", label: "Clicker Generator", icon: MousePointerClick },
   { href: "/settings", label: "Cài đặt", icon: Settings },
 ];
 

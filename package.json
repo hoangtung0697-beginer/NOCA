@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:clicker-generator && next build",
+    "build:clicker-generator": "cd tools/clicker-generator && npm install && npm run build && rm -rf ../../public/clicker-generator && cp -a dist ../../public/clicker-generator",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"
