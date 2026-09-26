@@ -956,7 +956,8 @@ function rebuild(quiet = false) {
   const params: BuildParams = {
     baseShape: effectiveBaseShape,
     capWidthMm: s.capWidthMm,
-    shellScale: Math.max(1, s.capWidthMm / REF_CAP_WIDTH_MM),
+    // Height grows slower than width (power < 1) so large clickers don't turn into tall blocks.
+    shellScale: Math.max(1, Math.pow(s.capWidthMm / REF_CAP_WIDTH_MM, 0.65)),
     topThickness: Math.max(1, s.topThickness),
     imageDepth: s.imageDepth,
     imageMargin: isText ? 2.5 : 1.2,
