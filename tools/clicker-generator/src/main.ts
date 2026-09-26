@@ -950,20 +950,27 @@ function rebuild(quiet = false) {
   const capBaseColor: RGB = s.baseColorOverride ?? deriveFrameColor(s);
 
   const isText = s.importMode === 'text';
+  // DRAFT: the shell (cap thickness, body wall/floor) was fixed in mm regardless of
+  // capWidthMm, so a much wider design looked "flatter" — the switch itself (socket,
+  // stem, travel) is real hardware and can never scale, but the surrounding shell can.
+  // Grows sub-linearly (sqrt) off the 35mm reference size so it doesn't run away at
+  // the high end of the range; clamped so tiny/huge sizes stay sane.
+  const REF_CAP_WIDTH_MM = 35;
+  const sizeScale = Math.max(0.6, Math.min(3, Math.sqrt(s.capWidthMm / REF_CAP_WIDTH_MM)));
   const params: BuildParams = {
     baseShape: effectiveBaseShape,
     capWidthMm: s.capWidthMm,
-    topThickness: Math.max(1, s.topThickness),
+    topThickness: Math.max(1, s.topThickness) * sizeScale,
     imageDepth: s.imageDepth,
     imageMargin: isText ? 2.5 : 1.2,
     borderWidth: isText ? 3.5 : 2.6,
-    capProud: 4.0,
+    capProud: 4.0 * sizeScale,
     tolerance: s.tolerance,
     stemTolerance: s.stemTolerance,
     colorBleed: 0.12,
     stepHeight: 0.6,
     travel: 4.0,
-    floorThickness: 1.6,
+    floorThickness: 1.6 * sizeScale,
     switches: s.switches,
     keychain: s.keychain,
     baseFilamentRgb: capBaseColor,
