@@ -88,8 +88,8 @@ export function createViewer(container: HTMLElement): Viewer {
   const camera = new THREE.PerspectiveCamera(
     45,
     container.clientWidth / container.clientHeight,
-    0.1,
-    5000,
+    0.5,
+    50000, // Size goes up to 2000mm; the auto-framed camera sits several model-widths away
   );
   camera.up.set(0, 0, 1); // Z up (CAD)
   camera.position.set(60, -60, 45);
@@ -103,6 +103,7 @@ export function createViewer(container: HTMLElement): Viewer {
   scene.add(new THREE.AmbientLight(0xffffff, 0.2));
 
   let gridZ = -20;
+  let gridSize = 300;
   let grid: THREE.GridHelper | null = null;
 
   function rebuildGrid(theme: string, z: number) {
@@ -110,7 +111,8 @@ export function createViewer(container: HTMLElement): Viewer {
     gridZ = z;
     const accentColor = theme === 'dark' ? 0x5b9dff : 0x2563eb;
     const gridColor = theme === 'dark' ? 0x2d3139 : 0xd1d5db;
-    grid = new THREE.GridHelper(300, 30, accentColor, gridColor);
+    // Keep 10mm cells; grow the grid (in 100mm steps) so it always extends past the model.
+    grid = new THREE.GridHelper(gridSize, gridSize / 10, accentColor, gridColor);
     grid.rotation.x = Math.PI / 2;
     grid.position.z = gridZ;
     // Prevent grid lines from bleeding through model body:
@@ -236,6 +238,7 @@ export function createViewer(container: HTMLElement): Viewer {
     // Drop the grid just under the model's bottom (which lands at z = 0) so the
     // solid base occludes it instead of z-fighting with the coplanar bottom face.
     const activeTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    gridSize = Math.max(300, Math.ceil((Math.max(size.x, size.y) * 2) / 100) * 100);
     rebuildGrid(activeTheme, -GRID_GAP);
 
     if (!preserveCamera) {

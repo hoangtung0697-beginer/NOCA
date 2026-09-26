@@ -79,6 +79,10 @@ const VI: Record<string, string> = {
   'filament.customColor': 'Màu tùy chỉnh',
   'contextMenu.adjustColor': 'Điều chỉnh màu',
   'contextMenu.adjustSize': 'Điều chỉnh kích thước',
+  'panel.close': 'Đóng',
+  'partScale.title': 'Điều chỉnh kích thước',
+  'partScale.reset': 'Đặt lại 100%',
+  'partScale.hint': 'Chỉ phóng to/thu nhỏ phần đã chọn trên logo. Kích thước và hình dạng clicker giữ nguyên.',
 
   'keychain.label': 'Móc khóa',
   'keychain.tip': 'Thêm một móc để có thể gắn clicker vào chùm chìa khóa.',

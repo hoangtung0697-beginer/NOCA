@@ -87,6 +87,8 @@ const store = createStore<UiState>({
   separateLetters: false,
   extrudeHeight: null,
   componentHeights: {},
+  partScales: {},
+  scaleTarget: null,
   selectedParts: [],
   canUndo: false,
   canRedo: false,
@@ -317,12 +319,12 @@ const ui = createUi(sidebarLeft, sidebarRight, statusEl, {
   onSelectSvg: (svgText, name) => {
     currentSvgText = svgText;
     currentSvgName = name;
-    store.set({ status: t('status.selectedSvg', 'Selected SVG: {name}. Click Generate to update.').replace('{name}', name) });
+    store.set({ componentHeights: {}, partScales: {}, scaleTarget: null, status: t('status.selectedSvg', 'Selected SVG: {name}. Click Generate to update.').replace('{name}', name) });
   },
   onSelectIcon: (svgText, name) => {
     currentIconText = svgText;
     currentIconName = name;
-    store.set({ currentIconName: name, status: t('status.selectedIcon', 'Selected icon: {name}. Click Generate to update.').replace('{name}', name) });
+    store.set({ currentIconName: name, componentHeights: {}, partScales: {}, scaleTarget: null, status: t('status.selectedIcon', 'Selected icon: {name}. Click Generate to update.').replace('{name}', name) });
   },
   onTextChange: (text) => {
     currentText = text;
@@ -387,6 +389,29 @@ const ui = createUi(sidebarLeft, sidebarRight, statusEl, {
     store.set({ edgeSettings });
     debouncedQuietRebuild(); // live preview of the bevel size
   },
+  onExtrudeClose: () => {
+    store.set({ editMode: 'color', selectedParts: [] });
+  },
+  onPartScaleStep: (delta: number) => {
+    const s = store.get();
+    if (!s.scaleTarget) return;
+    const current = s.partScales[s.scaleTarget] ?? 1;
+    const next = Math.round(Math.max(0.2, Math.min(3, current + delta)) * 100) / 100;
+    if (next === current) return;
+    store.set({ partScales: { ...s.partScales, [s.scaleTarget]: next } });
+    debouncedQuietRebuild();
+  },
+  onPartScaleReset: () => {
+    const s = store.get();
+    if (!s.scaleTarget || s.partScales[s.scaleTarget] === undefined) return;
+    const partScales = { ...s.partScales };
+    delete partScales[s.scaleTarget];
+    store.set({ partScales });
+    debouncedQuietRebuild();
+  },
+  onPartScaleClose: () => {
+    store.set({ scaleTarget: null, selectedParts: [] });
+  },
   onExtrudeStep: (delta: number) => {
     const s = store.get();
     if (s.selectedParts.length === 0) return;
@@ -432,7 +457,7 @@ const ui = createUi(sidebarLeft, sidebarRight, statusEl, {
 // (reprocess) starts a fresh baseline. Restoring rebuilds the geometry.
 const HISTORY_FIELDS = [
   'palette', 'paletteOverrides', 'partOverrides', 'bodyColorRgb', 'baseColorOverride',
-  'componentHeights', 'edgeSettings', 'extrudeChamfer', 'baseShape', 'capWidthMm', 'topThickness',
+  'componentHeights', 'partScales', 'edgeSettings', 'extrudeChamfer', 'baseShape', 'capWidthMm', 'topThickness',
   'imageDepth', 'tolerance', 'stemTolerance', 'switches', 'keychain',
 ] as const;
 let history: string[] = [];
@@ -557,14 +582,17 @@ viewer.onPartPick((index, shiftKey) => {
   } else {
     nextSelected = [partName];
   }
-  store.set({ selectedParts: nextSelected });
+  // With the size panel open, clicking another logo part switches the panel to it.
+  const retarget = s.scaleTarget && !shiftKey && /^top-color-/.test(partName);
+  store.set(retarget ? { selectedParts: nextSelected, scaleTarget: partName } : { selectedParts: nextSelected });
 });
 
-// ---- Right-click a selected part: draft context menu with "Adjust color" / "Adjust size". ----
+// ---- Right-click a part: "Adjust color", plus "Adjust size" for logo parts only. ----
 viewer.onPartContextMenu((index, clientX, clientY) => {
   const part = latestParts[index];
   if (!part) return;
   store.set({ selectedParts: [part.name] });
+  const isLogoPart = /^top-color-/.test(part.name);
 
   ui.showPartContextMenu(clientX, clientY, {
     onAdjustColor: () => {
@@ -580,9 +608,9 @@ viewer.onPartContextMenu((index, clientX, clientY) => {
         onClose: () => store.set({ selectedParts: [] }),
       });
     },
-    onAdjustSize: () => {
-      store.set({ editMode: 'extrude' });
-    },
+    onAdjustSize: isLogoPart
+      ? () => store.set({ editMode: 'color', scaleTarget: part.name, selectedParts: [part.name] })
+      : undefined,
   });
 });
 
@@ -836,6 +864,10 @@ async function openWizard(getter: () => Promise<RgbaImage>) {
           limitedColors: limitedColors || [],
           bodyColorRgb: defaultBodyColor,
           paletteOverrides: paletteOverrides || [],
+          // A new image means new parts: per-part heights/sizes no longer apply.
+          componentHeights: {},
+          partScales: {},
+          scaleTarget: null,
         });
         reprocess();
       },
@@ -919,7 +951,12 @@ function reprocess() {
 }
 
 function rebuild(quiet = false) {
-  if (!regionSet || regionSet.regions.length === 0) return;
+  if (!regionSet || regionSet.regions.length === 0) {
+    // The startup clicker is a prebuilt mesh with no traced regions yet; trace the
+    // startup image now so size/shape/thickness edits actually apply to it.
+    if (defaultClickerLoaded && store.get().importMode === 'image' && originalImage) reprocess();
+    return;
+  }
   if (!assetsReady) {
     store.set({ status: t('status.waitingSwitchAssets', 'Waiting for switch assets…') });
     return;
@@ -976,6 +1013,7 @@ function rebuild(quiet = false) {
     edgeSettings: s.edgeSettings,
     extrudeChamfer: s.extrudeChamfer,
     componentHeights: s.componentHeights,
+    partScales: s.partScales,
   };
 
   if (quiet) {
@@ -1098,6 +1136,7 @@ function saveProject() {
       extrudeChamfer: s.extrudeChamfer,
       separateLetters: s.separateLetters,
       componentHeights: s.componentHeights,
+      partScales: s.partScales,
     },
     palette: s.palette, // filament mappings
     image: originalImage ? imageToDataUrl(originalImage) : null,
@@ -1154,6 +1193,8 @@ async function loadProject(file: File) {
       extrudeChamfer: set.extrudeChamfer ?? false,
       separateLetters: set.separateLetters ?? false,
       componentHeights: set.componentHeights ?? {},
+      partScales: set.partScales ?? {},
+      scaleTarget: null,
     });
 
     if (set.importMode === 'image' && proj.image) {

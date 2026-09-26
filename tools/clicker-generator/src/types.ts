@@ -142,6 +142,8 @@ export interface BuildParams {
   bodyColorRgb: RGB;
   /** Component-specific height levels (partName -> level integer) */
   componentHeights: Record<string, number>;
+  /** Per-part size multiplier (partName -> 1 = original), scaled about the part's centre. */
+  partScales?: Record<string, number>;
   /** Edge modifications (fillet / chamfer) for body and cap edges. */
   edgeSettings: EdgeSetting[];
   /** Global toggle: chamfer the top edge of every raised (extruded) color part. */

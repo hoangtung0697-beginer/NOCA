@@ -517,15 +517,35 @@ export function buildClicker(
   //     colors win at shared boundaries. Clean even when all colors are flat.
   //     topSlab is exactly `imageDepth` tall so inlays end flush with the cap's
   //     top face (slabTopZ) — the top reads as ONE flat surface, not raised. ---
+  // A part the user resized (partScales) is carved first so it stays whole on top of
+  // its neighbours instead of being clipped by them.
+  const partScale = (name: string) => Math.max(0.2, Math.min(3, params.partScales?.[name] ?? 1));
+  const isResized = (name: string) => Math.abs(partScale(name) - 1) > 1e-3;
   const ordered = regions
     .map((r) => ({ r }))
-    .sort((a, b) => (a.r.coverage ?? 1) - (b.r.coverage ?? 1));
-    
+    .sort((a, b) => {
+      const ra = isResized(a.r.partName) ? 0 : 1;
+      const rb = isResized(b.r.partName) ? 0 : 1;
+      return ra - rb || (a.r.coverage ?? 1) - (b.r.coverage ?? 1);
+    });
+
+  // Resize a part about its own bbox centre, leaving the cap/body/outline untouched.
+  const resizeRings = (rings: Ring[], k: number): Ring[] => {
+    if (Math.abs(k - 1) < 1e-3) return rings;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const ring of rings) for (const [x, y] of ring) {
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    return rings.map((ring) => ring.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k] as [number, number]));
+  };
+
   let placed2D: Section | null = null; // 2D union of inlays already carved (no overlap)
   const holesByLevel = new Map<number, Section>();
 
   for (const { r } of ordered) {
-    const validRings = scaleRings(r.rings).filter(ring => ring.length >= 3 && getRingArea(ring) > 0.001);
+    const validRings = scaleRings(resizeRings(r.rings, partScale(r.partName)))
+      .filter(ring => ring.length >= 3 && getRingArea(ring) > 0.001);
     if (validRings.length === 0) continue;
     let cs: Section = simp(track(new CrossSection(validRings, 'NonZero')), 0.03);
     if (params.colorBleed > 0.001) cs = grow(cs, params.colorBleed);

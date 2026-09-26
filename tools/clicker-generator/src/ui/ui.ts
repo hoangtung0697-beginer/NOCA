@@ -57,6 +57,10 @@ export interface UiState {
   extrudeHeight: number | null;
   /** Component-specific heights */
   componentHeights: Record<string, number>;
+  /** Per-part size multipliers (1 = original). */
+  partScales: Record<string, number>;
+  /** Part whose size panel is open (right-click → Adjust size), or null. */
+  scaleTarget: string | null;
   /** Which parts are currently selected in the viewport (part names). */
   selectedParts: string[];
   /** Whether an undo / redo step is available (drives the toolbar buttons). */
@@ -122,6 +126,12 @@ export interface UiCallbacks {
   onEdgeStyle(target: string, style: EdgeStyle): void;
   onEdgeStep(target: string, delta: number): void;
   onExtrudeStep(delta: number): void;
+  /** Leave Extrude mode (the extrude panel's close button). */
+  onExtrudeClose(): void;
+  /** Resize the part in the size panel by delta (fraction, e.g. 0.05 = +5%). */
+  onPartScaleStep(delta: number): void;
+  onPartScaleReset(): void;
+  onPartScaleClose(): void;
   /** Global toggle: chamfer every raised (extruded) part. Not tied to selection. */
   onExtrudeChamfer(on: boolean): void;
   /** Text mode: toggle splitting the word into per-letter parts. */
@@ -904,6 +914,7 @@ export function createUi(
     extrudePanel.className = 'edges-panel';
     extrudePanel.setAttribute('hidden', '');
     extrudePanel.innerHTML = `
+      <button type="button" class="panel-close" id="extrudeClose" aria-label="${t('panel.close', 'Close')}">×</button>
       <div class="edges-title">${t('extrude.title', 'Extrude Part')}</div>
       <div id="extrudeLevelLabel" style="text-align:center; margin-top:8px; font-size:13px; color:var(--muted);">${t('editMode.level', 'Level: {n}').replace('{n}', '0')}</div>
       <div style="display:flex; gap:8px; margin-top:8px;">
@@ -918,8 +929,31 @@ export function createUi(
     `;
     viewport.appendChild(extrudePanel);
 
+    extrudePanel.querySelector('#extrudeClose')?.addEventListener('click', () => cb.onExtrudeClose());
     extrudePanel.querySelector('#extrudeMinus')?.addEventListener('click', () => cb.onExtrudeStep(-1));
     extrudePanel.querySelector('#extrudePlus')?.addEventListener('click', () => cb.onExtrudeStep(1));
+
+    // --- Part size panel (right-click → Adjust size): resizes one logo part only ---
+    const scalePanel = document.createElement('div');
+    scalePanel.id = 'partScalePanel';
+    scalePanel.className = 'edges-panel';
+    scalePanel.setAttribute('hidden', '');
+    scalePanel.innerHTML = `
+      <button type="button" class="panel-close" id="partScaleClose" aria-label="${t('panel.close', 'Close')}">×</button>
+      <div class="edges-title">${t('partScale.title', 'Adjust size')}</div>
+      <div id="partScaleValue" style="text-align:center; font-size:15px; font-weight:600;">100%</div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn" id="partScaleMinus" style="flex:1; font-size:18px;">−</button>
+        <button type="button" class="btn" id="partScalePlus" style="flex:1; font-size:18px;">+</button>
+      </div>
+      <button type="button" class="secondary" id="partScaleReset">${t('partScale.reset', 'Reset to 100%')}</button>
+      <div class="panel-hint">${t('partScale.hint', 'Enlarges or shrinks only the selected part of the design. The clicker size and shape stay the same.')}</div>
+    `;
+    viewport.appendChild(scalePanel);
+    scalePanel.querySelector('#partScaleClose')?.addEventListener('click', () => cb.onPartScaleClose());
+    scalePanel.querySelector('#partScaleMinus')?.addEventListener('click', () => cb.onPartScaleStep(-0.05));
+    scalePanel.querySelector('#partScalePlus')?.addEventListener('click', () => cb.onPartScaleStep(0.05));
+    scalePanel.querySelector('#partScaleReset')?.addEventListener('click', () => cb.onPartScaleReset());
     // Plain uncontrolled checkbox: let the browser flip it natively on click, then
     // push the new value to the app. update() only re-syncs `.checked` for programmatic
     // changes (undo/redo, project load) — it won't fight the user's click.
@@ -1583,7 +1617,7 @@ export function createUi(
   function showPartContextMenu(
     clientX: number,
     clientY: number,
-    handlers: { onAdjustColor: () => void; onAdjustSize: () => void }
+    handlers: { onAdjustColor: () => void; onAdjustSize?: () => void }
   ) {
     document.getElementById('sbPartContextMenu')?.remove();
 
@@ -1609,14 +1643,17 @@ export function createUi(
     });
     menu.appendChild(colorBtn);
 
-    const sizeBtn = document.createElement('button');
-    sizeBtn.type = 'button';
-    sizeBtn.textContent = t('contextMenu.adjustSize', 'Adjust size');
-    sizeBtn.addEventListener('click', () => {
-      close();
-      handlers.onAdjustSize();
-    });
-    menu.appendChild(sizeBtn);
+    const onAdjustSize = handlers.onAdjustSize;
+    if (onAdjustSize) {
+      const sizeBtn = document.createElement('button');
+      sizeBtn.type = 'button';
+      sizeBtn.textContent = t('contextMenu.adjustSize', 'Adjust size');
+      sizeBtn.addEventListener('click', () => {
+        close();
+        onAdjustSize();
+      });
+      menu.appendChild(sizeBtn);
+    }
 
     const w = menu.offsetWidth || 160;
     const h = menu.offsetHeight || 80;
@@ -2005,6 +2042,21 @@ export function createUi(
         }
       } else {
         extrudePanelEl.setAttribute('hidden', '');
+      }
+    }
+
+    // --- Part size panel ---
+    const scalePanelEl = document.getElementById('partScalePanel');
+    if (scalePanelEl) {
+      scalePanelEl.toggleAttribute('hidden', !state.scaleTarget);
+      if (state.scaleTarget) {
+        const k = state.partScales[state.scaleTarget] ?? 1;
+        const valEl = document.getElementById('partScaleValue');
+        if (valEl) valEl.textContent = `${Math.round(k * 100)}%`;
+        const minus = document.getElementById('partScaleMinus') as HTMLButtonElement | null;
+        const plus = document.getElementById('partScalePlus') as HTMLButtonElement | null;
+        if (minus) minus.disabled = k <= 0.2 + 1e-6;
+        if (plus) plus.disabled = k >= 3 - 1e-6;
       }
     }
 
