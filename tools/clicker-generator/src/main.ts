@@ -101,6 +101,8 @@ let regionSet: RegionSet | null = null;
 let latestParts: ClickerPart[] = [];
 let assetsReady = false;
 let defaultClickerLoaded = false;
+/** capWidthMm the camera was last framed for (0 = never). */
+let framedCapWidth = 0;
 
 // Vector states
 let currentSvgText = '';
@@ -755,7 +757,15 @@ worker.onmessage = (e: MessageEvent<GeometryResponse>) => {
       break;
     case 'parts': {
       latestParts = msg.parts;
-      viewer.setParts(msg.parts, !pendingHistoryReset);
+      {
+        // Re-frame the camera for a fresh trace, or when Size changed enough that the
+        // old view would be far too close/far from the model.
+        const w = store.get().capWidthMm;
+        const sizeJump = framedCapWidth > 0 && Math.abs(w - framedCapWidth) / framedCapWidth > 0.25;
+        const reframe = pendingHistoryReset || sizeJump || framedCapWidth === 0;
+        if (reframe) framedCapWidth = w;
+        viewer.setParts(msg.parts, !reframe);
+      }
       viewer.setView(store.get().view);
       // Seat one preview switch per (clamped) placement the geometry was built around.
       viewer.setSwitchPlacements(msg.switchPlacements ?? []);
