@@ -130,6 +130,9 @@ export interface BuildParams {
   stepHeight: number; // mm per height level for raised color relief
   travel: number; // switch press travel the well must clear (~3.5–4 mm)
   floorThickness: number;
+  /** Size ÷ reference size (≥1): grows cap and body height so a wide clicker keeps
+   *  the reference proportions despite the fixed-size switch stack. */
+  shellScale?: number;
   /** MX switch placements (1..3). Each is nudged off the design centre and rotated so
    *  the switch sits under solid material; the worker clamps each to the cap footprint
    *  and enforces a minimum centre-to-centre pitch, reporting the applied array back. */

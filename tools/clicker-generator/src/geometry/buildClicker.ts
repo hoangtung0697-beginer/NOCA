@@ -420,8 +420,20 @@ export function buildClicker(
   // --- Z layout (shared assembly frame: Z = 0 is the switch-plate top) ---
   const cavityFloorZ = socketBB.max[2]; // socket top = plate plane (≈ 0); the well opens to it
   const slabBottomZ = stemBB.max[2]; // cap underside = stem top = rest float above the plate
-  const backing = Math.max(0.8, params.topThickness);
   const imageDepth = Math.max(0.2, params.imageDepth);
+  // The switch stack is fixed hardware, so a wider clicker would flatten out. Keep the
+  // cap and body height/width ratios of the reference size by growing the cap backing
+  // and body floor: target height = reference height × shellScale.
+  const shellScale = Math.max(1, params.shellScale ?? 1);
+  const skirtSpan = slabBottomZ - stemBB.min[2];
+  const baseBacking = Math.max(0.8, params.topThickness);
+  const backing = baseBacking * shellScale + (skirtSpan + imageDepth) * (shellScale - 1);
+  const refBodyHeight =
+    slabBottomZ - socketBB.min[2] + baseBacking + imageDepth - params.capProud + params.floorThickness;
+  const floorThickness = Math.max(
+    params.floorThickness,
+    refBodyHeight * shellScale - (slabBottomZ - socketBB.min[2] + backing + imageDepth - params.capProud),
+  );
   const slabTopZ = slabBottomZ + backing + imageDepth; // flat image surface (top)
   const imageBottomZ = slabBottomZ + backing; // colors live above this
   const travel = Math.max(0, params.travel);
@@ -429,7 +441,7 @@ export function buildClicker(
   // The body border top sits `capProud` below the cap top, so pressing the cap down
   // by `travel` brings its top flush with the border (rest = a proud pressable button;
   // full press = flush). capProud ≈ travel.
-  const bodyBottomZ = socketBB.min[2] - params.floorThickness;
+  const bodyBottomZ = socketBB.min[2] - floorThickness;
   const maxProud = Math.max(0.4, slabTopZ - cavityFloorZ - 1.0); // leave ≥1 mm of border
   const capProud = Math.max(0.4, Math.min(params.capProud, maxProud));
   const bodyTopZ = slabTopZ - capProud;
