@@ -22,6 +22,7 @@ import type {
   SwitchPlacement,
 } from './types';
 import { FILAMENTS } from './types';
+import { t } from './i18n';
 
 // Start fetching switch assets immediately at startup to run in parallel with worker setup
 const base = import.meta.env.BASE_URL;
@@ -50,7 +51,7 @@ function defaultSwitchLayout(n: number, capWidthMm: number): SwitchPlacement[] {
 
 // ---- State (UI-facing) ----
 const store = createStore<UiState>({
-  status: 'Loading switch assets…',
+  status: t('status.loadingSwitchAssets', 'Loading switch assets…'),
   building: false,
   hasParts: false,
   colorCount: 4,
@@ -104,7 +105,7 @@ let currentSvgText = '';
 let currentSvgName = '';
 let currentIconText = '';
 let currentIconName = '';
-let currentText = 'Custom\nText';
+let currentText = t('textPanel.defaultContent', 'Custom\nText');
 let currentFontId = 'helvetiker-regular';
 let isInitialLoad = true;
 
@@ -279,9 +280,9 @@ const ui = createUi(sidebarLeft, sidebarRight, statusEl, {
   onAiPrompt: async () => {
     try {
       await navigator.clipboard.writeText(AI_PROMPT);
-      store.set({ status: 'AI image prompt copied to clipboard ✓' });
+      store.set({ status: t('status.aiPromptCopied', 'AI image prompt copied to clipboard ✓') });
     } catch {
-      store.set({ status: 'Could not copy, see console.' });
+      store.set({ status: t('status.copyFailed', 'Could not copy, see console.') });
       console.log(AI_PROMPT);
     }
   },
@@ -305,41 +306,41 @@ const ui = createUi(sidebarLeft, sidebarRight, statusEl, {
   },
   onSvgUpload: async (file) => {
     try {
-      store.set({ building: true, status: 'Reading SVG…' });
+      store.set({ building: true, status: t('status.readingSvg', 'Reading SVG…') });
       const svgText = await file.text();
       ui.addUploadedSvg(svgText, file.name.replace(/\.svg$/i, ''));
       store.set({ building: false });
     } catch (err) {
-      store.set({ building: false, status: 'Error reading SVG: ' + String(err) });
+      store.set({ building: false, status: t('status.errorReadingSvg', 'Error reading SVG: {msg}').replace('{msg}', String(err)) });
     }
   },
   onSelectSvg: (svgText, name) => {
     currentSvgText = svgText;
     currentSvgName = name;
-    store.set({ status: `Selected SVG: ${name}. Click Generate to update.` });
+    store.set({ status: t('status.selectedSvg', 'Selected SVG: {name}. Click Generate to update.').replace('{name}', name) });
   },
   onSelectIcon: (svgText, name) => {
     currentIconText = svgText;
     currentIconName = name;
-    store.set({ currentIconName: name, status: `Selected icon: ${name}. Click Generate to update.` });
+    store.set({ currentIconName: name, status: t('status.selectedIcon', 'Selected icon: {name}. Click Generate to update.').replace('{name}', name) });
   },
   onTextChange: (text) => {
     currentText = text;
-    store.set({ status: 'Text updated. Click Generate to update.' });
+    store.set({ status: t('status.textUpdated', 'Text updated. Click Generate to update.') });
   },
   onFontSelect: (fontId) => {
     currentFontId = fontId;
-    store.set({ status: 'Font changed. Click Generate to update.' });
+    store.set({ status: t('status.fontChanged', 'Font changed. Click Generate to update.') });
   },
   onImportFont: async (file) => {
     try {
-      store.set({ building: true, status: 'Importing font…' });
+      store.set({ building: true, status: t('status.importingFont', 'Importing font…') });
       const font = await importFontFile(file);
       ui.addFontOption(font);
       currentFontId = font.id;
-      store.set({ building: false, status: `Font ${font.name} imported! Click Generate to update.` });
+      store.set({ building: false, status: t('status.fontImported', 'Font {name} imported! Click Generate to update.').replace('{name}', font.name) });
     } catch (err) {
-      store.set({ building: false, status: 'Could not import font: ' + String(err) });
+      store.set({ building: false, status: t('status.fontImportFailed', 'Could not import font: {msg}').replace('{msg}', String(err)) });
     }
   },
   onThemeChange: (theme) => {
@@ -700,7 +701,7 @@ worker.onmessage = (e: MessageEvent<GeometryResponse>) => {
       viewer.setSwitch(msg.switchMesh);
       viewer.showSwitch(store.get().showSwitch);
       store.set({
-        status: 'Ready. Import an image, SVG, icon, or text.',
+        status: t('status.ready', 'Ready. Import an image, SVG, icon, or text.'),
       });
       // Pick a default popular icon on startup so it builds immediately
       if (store.get().importMode === 'icon' && !currentIconText) {
@@ -732,7 +733,9 @@ worker.onmessage = (e: MessageEvent<GeometryResponse>) => {
         building: false,
         hasParts: msg.parts.length > 0,
         // Surface any non-fatal build note (switches pinched, no keychain room) or clear.
-        status: msg.warnings && msg.warnings.length ? msg.warnings[0] : '',
+        // The worker has no localStorage access, so it always emits English; translate
+        // known warnings here on the main thread by exact-matching the text.
+        status: msg.warnings && msg.warnings.length ? translateBuildWarning(msg.warnings[0]) : '',
       });
       isInitialLoad = false;
 
@@ -744,14 +747,14 @@ worker.onmessage = (e: MessageEvent<GeometryResponse>) => {
       break;
     }
     case 'error':
-      store.set({ building: false, status: 'Error: ' + firstLine(msg.message) });
+      store.set({ building: false, status: t('status.error', 'Error: {msg}').replace('{msg}', firstLine(msg.message)) });
       console.error('[geometry worker]', msg.message);
       isInitialLoad = false;
       break;
   }
 };
 worker.onerror = (e) => {
-  store.set({ building: false, status: 'Worker failed: ' + e.message });
+  store.set({ building: false, status: t('status.workerFailed', 'Worker failed: {msg}').replace('{msg}', e.message) });
   console.error(e);
 };
 
@@ -760,14 +763,14 @@ async function initAssets() {
     const [socket, stem, sw] = await assetsPromise;
     worker.postMessage({ type: 'init', socket, stem, switch: sw }, [socket, stem, sw]);
   } catch (err) {
-    store.set({ status: 'Failed to load switch assets: ' + String(err) });
+    store.set({ status: t('status.loadSwitchFailed', 'Failed to load switch assets: {msg}').replace('{msg}', String(err)) });
     isInitialLoad = false;
   }
 }
 
 async function loadDefaultClicker() {
   try {
-    store.set({ status: 'Loading default clicker…' });
+    store.set({ status: t('status.loadingDefaultClicker', 'Loading default clicker…') });
     const response = await fetch(base + 'assets/default-clicker.json');
     if (!response.ok) throw new Error('Failed to fetch default clicker asset');
     const serializedParts = await response.json();
@@ -801,14 +804,14 @@ async function loadDefaultClicker() {
 // ---- Pipeline ----
 async function openWizard(getter: () => Promise<RgbaImage>) {
   try {
-    store.set({ building: true, status: 'Reading image…' });
+    store.set({ building: true, status: t('status.readingImage', 'Reading image…') });
     const baseImage = await getter();
-    store.set({ building: false, status: 'Preprocess your image…' });
+    store.set({ building: false, status: t('status.preprocessImage', 'Preprocess your image…') });
     runWizard({
       baseImage,
       initialColorCount: store.get().colorCount,
       onCancel: () =>
-        store.set({ status: originalImage ? 'Ready.' : 'Ready. Drop an image or try the sample.' }),
+        store.set({ status: originalImage ? t('status.readyDefault', 'Ready.') : t('status.readyDropOrSample', 'Ready. Drop an image or try the sample.') }),
       onComplete: ({ adjusted, preprocess, colorCount, colorMode, limitedColors, paletteOverrides }) => {
         originalImage = adjusted;
         let defaultBodyColor = store.get().bodyColorRgb;
@@ -831,7 +834,7 @@ async function openWizard(getter: () => Promise<RgbaImage>) {
       },
     });
   } catch (err) {
-    store.set({ building: false, status: 'Could not read image: ' + String(err) });
+    store.set({ building: false, status: t('status.readImageFailed', 'Could not read image: {msg}').replace('{msg}', String(err)) });
   }
 }
 
@@ -844,7 +847,7 @@ function reprocess() {
 
   if (s.importMode === 'image') {
     if (!originalImage) return;
-    store.set({ building: true, status: 'Removing background & tracing…' });
+    store.set({ building: true, status: t('status.removingBgTracing', 'Removing background & tracing…') });
     regionSet = processImage(cloneImage(originalImage), s.colorCount, {
       removeBg: s.removeBg,
       smoothing: s.smoothing,
@@ -852,14 +855,14 @@ function reprocess() {
     });
   } else if (s.importMode === 'svg') {
     if (!currentSvgText) {
-      store.set({ status: 'Upload an SVG file first.' });
+      store.set({ status: t('status.uploadSvgFirst', 'Upload an SVG file first.') });
       return;
     }
     try {
-      store.set({ building: true, status: 'Parsing SVG…' });
+      store.set({ building: true, status: t('status.parsingSvg', 'Parsing SVG…') });
       regionSet = parseSvg(currentSvgText, { removeBg: s.removeBg });
     } catch (e: any) {
-      store.set({ building: false, status: 'Error: ' + e.message });
+      store.set({ building: false, status: t('status.error', 'Error: {msg}').replace('{msg}', e.message) });
       return;
     }
   } else if (s.importMode === 'icon') {
@@ -872,22 +875,22 @@ function reprocess() {
       }
     }
     if (!currentIconText) {
-      store.set({ status: 'Select an icon first.' });
+      store.set({ status: t('status.selectIconFirst', 'Select an icon first.') });
       return;
     }
     try {
-      store.set({ building: true, status: 'Parsing Icon…' });
+      store.set({ building: true, status: t('status.parsingIcon', 'Parsing Icon…') });
       regionSet = parseSvg(currentIconText);
     } catch (e: any) {
-      store.set({ building: false, status: 'Error: ' + e.message });
+      store.set({ building: false, status: t('status.error', 'Error: {msg}').replace('{msg}', e.message) });
       return;
     }
   } else if (s.importMode === 'text') {
     try {
-      store.set({ building: true, status: 'Generating Text…' });
+      store.set({ building: true, status: t('status.generatingText', 'Generating Text…') });
       regionSet = parseLetter(currentText, currentFontId, 15, s.separateLetters);
     } catch (e: any) {
-      store.set({ building: false, status: 'Error: ' + e.message });
+      store.set({ building: false, status: t('status.error', 'Error: {msg}').replace('{msg}', e.message) });
       return;
     }
   }
@@ -902,7 +905,7 @@ function reprocess() {
   store.set({ palette });
 
   if (palette.length === 0) {
-    store.set({ building: false, status: 'No outline found.' });
+    store.set({ building: false, status: t('status.noOutlineFound', 'No outline found.') });
     return;
   }
   rebuild();
@@ -911,7 +914,7 @@ function reprocess() {
 function rebuild(quiet = false) {
   if (!regionSet || regionSet.regions.length === 0) return;
   if (!assetsReady) {
-    store.set({ status: 'Waiting for switch assets…' });
+    store.set({ status: t('status.waitingSwitchAssets', 'Waiting for switch assets…') });
     return;
   }
   const s = store.get();
@@ -966,9 +969,9 @@ function rebuild(quiet = false) {
   if (quiet) {
     // Live edit preview (extrude / edges): rebuild silently — no full-screen overlay.
   } else if (isInitialLoad) {
-    store.set({ status: 'Building clicker…' });
+    store.set({ status: t('status.buildingClicker', 'Building clicker…') });
   } else {
-    store.set({ building: true, status: 'Building clicker…' });
+    store.set({ building: true, status: t('status.buildingClicker', 'Building clicker…') });
   }
   worker.postMessage({ type: 'buildClicker', regions, outline: regionSet.outline, params });
 }
@@ -1002,6 +1005,15 @@ function rgbToHex(rgb: RGB): string {
 }
 function firstLine(s: string): string {
   return s.split('\n')[0];
+}
+
+/** Known build-warning strings the geometry worker can emit (always in English,
+ *  since workers have no localStorage access), translated here on the main thread. */
+function translateBuildWarning(en: string): string {
+  if (en === 'Switches were pulled together to fit the cap — increase Size for more room.') {
+    return t('warning.switchesPulledTogether', en);
+  }
+  return en;
 }
 
 // ---- Render / project save-load / AI prompt ----
@@ -1079,16 +1091,16 @@ function saveProject() {
     image: originalImage ? imageToDataUrl(originalImage) : null,
   };
   downloadBlob(new Blob([JSON.stringify(proj)], { type: 'application/json' }), 'clicker-project.json');
-  store.set({ status: 'Project saved ✓' });
+  store.set({ status: t('status.projectSaved', 'Project saved ✓') });
 }
 
 async function loadProject(file: File) {
   try {
-    store.set({ building: true, status: 'Loading project…' });
+    store.set({ building: true, status: t('status.loadingProject', 'Loading project…') });
     const proj = JSON.parse(await file.text());
     const set = proj.settings ?? {};
 
-    currentText = set.currentText ?? 'Custom\nText';
+    currentText = set.currentText ?? t('textPanel.defaultContent', 'Custom\nText');
     currentFontId = set.currentFontId ?? 'helvetiker-regular';
     currentSvgText = set.currentSvgText ?? '';
     currentSvgName = set.currentSvgName ?? '';
@@ -1147,7 +1159,7 @@ async function loadProject(file: File) {
       rebuild();
     }
   } catch (err) {
-    store.set({ building: false, status: 'Could not load project: ' + String(err) });
+    store.set({ building: false, status: t('status.loadProjectFailed', 'Could not load project: {msg}').replace('{msg}', String(err)) });
   }
 }
 

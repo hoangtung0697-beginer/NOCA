@@ -10,6 +10,7 @@ import type { RgbaImage } from '../image/decode';
 import { preprocessImage } from '../image/adjust';
 import { removeBackground } from '../image/matte';
 import { DEFAULT_PREPROCESS, type CropRatio, type PreprocessParams, type RGB } from '../types';
+import { t } from '../i18n';
 
 export interface WizardResult {
   adjusted: RgbaImage; // cropped + tone-adjusted, background still present
@@ -28,17 +29,17 @@ interface WizardOpts {
 }
 
 const SLIDERS: [keyof PreprocessParams, string][] = [
-  ['exposure', 'Exposure'],
-  ['contrast', 'Contrast'],
-  ['saturation', 'Saturation'],
-  ['brightness', 'Brightness'],
-  ['whiteBalance', 'White Balance'],
-  ['highlights', 'Highlights'],
-  ['shadows', 'Shadows'],
+  ['exposure', t('wizard.slider.exposure', 'Exposure')],
+  ['contrast', t('wizard.slider.contrast', 'Contrast')],
+  ['saturation', t('wizard.slider.saturation', 'Saturation')],
+  ['brightness', t('wizard.slider.brightness', 'Brightness')],
+  ['whiteBalance', t('wizard.slider.whiteBalance', 'White Balance')],
+  ['highlights', t('wizard.slider.highlights', 'Highlights')],
+  ['shadows', t('wizard.slider.shadows', 'Shadows')],
 ];
 
 const RATIOS: [CropRatio, string][] = [
-  ['free', 'Free'],
+  ['free', t('wizard.ratio.free', 'Free')],
   ['1:1', '1:1'],
   ['4:3', '4:3'],
   ['3:2', '3:2'],
@@ -93,35 +94,35 @@ export function runWizard(opts: WizardOpts) {
   function stepPreprocess() {
     overlay.innerHTML = `
       <div class="wz-modal lg">
-        <div class="wz-head">Image Preprocessing</div>
+        <div class="wz-head">${t('wizard.title', 'Image Preprocessing')}</div>
         <div class="wz-body">
           <div class="wz-left">
             <div class="wz-canvas checker" id="wzPrev"></div>
             <div class="wz-info">
               <div class="wz-info-title">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
-                What kind of image works best
+                ${t('wizard.bestImageTitle', 'What kind of image works best')}
               </div>
               <ul>
-                <li><strong>Simple, flat colors</strong> with bold, clearly separated shapes.</li>
-                <li><strong>2D illustrations</strong>, logos, icons or clipart convert best.</li>
+                <li>${t('wizard.bestImage1', '<strong>Simple, flat colors</strong> with bold, clearly separated shapes.')}</li>
+                <li>${t('wizard.bestImage2', '<strong>2D illustrations</strong>, logos, icons or clipart convert best.')}</li>
               </ul>
-              <p class="wz-info-warn"><strong>Don't work well:</strong> photos of real objects with shadows, gradients or texture usually won't convert.</p>
-              <p>Missing details after processing? Turn up <strong>Contrast</strong> and <strong>Exposure</strong> to make the image bolder and bring them back.</p>
+              <p class="wz-info-warn">${t('wizard.worstImage', "<strong>Don't work well:</strong> photos of real objects with shadows, gradients or texture usually won't convert.")}</p>
+              <p>${t('wizard.missingDetails', 'Missing details after processing? Turn up <strong>Contrast</strong> and <strong>Exposure</strong> to make the image bolder and bring them back.')}</p>
             </div>
           </div>
           <div class="wz-controls">
-            <div class="wz-label">Crop Ratio</div>
+            <div class="wz-label">${t('wizard.cropRatio', 'Crop Ratio')}</div>
             <div class="seg" id="wzRatio">${RATIOS.map(
               ([k, l]) => `<button data-r="${k}">${l}</button>`,
             ).join('')}</div>
 
             <div class="wz-row spread">
-              <span class="wz-label">Image Thickness</span>
+              <span class="wz-label">${t('wizard.imageThickness', 'Image Thickness')}</span>
               <span class="wz-num"><input type="number" id="wzThick" min="0.2" max="10" step="0.2" /> mm</span>
             </div>
 
-            <div class="wz-label">Image Adjustment</div>
+            <div class="wz-label">${t('wizard.imageAdjustment', 'Image Adjustment')}</div>
             ${SLIDERS.map(
               ([k, l]) => `
               <div class="wz-adj">
@@ -133,9 +134,9 @@ export function runWizard(opts: WizardOpts) {
           </div>
         </div>
         <div class="wz-foot">
-          <span class="wz-error" id="wzErr" hidden>No outline found. Adjust the image and try again.</span>
-          <button id="wzCancel">Cancel</button>
-          <button class="primary" id="wzDone">Confirm</button>
+          <span class="wz-error" id="wzErr" hidden>${t('wizard.noOutline', 'No outline found. Adjust the image and try again.')}</span>
+          <button id="wzCancel">${t('wizard.cancel', 'Cancel')}</button>
+          <button class="primary" id="wzDone">${t('wizard.confirm', 'Confirm')}</button>
         </div>
       </div>`;
 

@@ -6,6 +6,7 @@ import type { RgbaImage } from '../image/decode';
 import type { FontOption } from '../image/letter';
 import { FONT_OPTIONS, loadBundledFonts } from '../image/letter';
 import { LUCIDE_ICONS, buildSvg, svgDataUrl } from '../image/lucideIcons';
+import { t, getLang, setLang, type Lang } from '../i18n';
 
 /** Neutral top↔base clearance (mm). The "Switch socket tolerance" stepper shows the
  *  offset from this baseline, so a fresh design reads 0. Keep in sync with the store default. */
@@ -168,15 +169,15 @@ const hexRgb = (hex: string): [number, number, number] => [
 ];
 
 // Friendly label for an edge target (global edge, body, cap frame, or a color part).
-const friendlyTargetLabel = (t: string): string => {
-  if (t === 'capTop') return 'Cap Top';
-  if (t === 'baseTop') return 'Base Top';
-  if (t === 'baseBottom') return 'Base Bottom';
-  if (t === 'base-body') return 'Body';
-  if (t === 'top-base') return 'Cap Frame';
-  const m = /^top-color-(\d+)-\d+$/.exec(t);
-  if (m) return `Color ${+m[1] + 1}`;
-  return t;
+const friendlyTargetLabel = (target: string): string => {
+  if (target === 'capTop') return t('target.capTop', 'Cap Top');
+  if (target === 'baseTop') return t('target.baseTop', 'Base Top');
+  if (target === 'baseBottom') return t('target.baseBottom', 'Base Bottom');
+  if (target === 'base-body') return t('target.body', 'Body');
+  if (target === 'top-base') return t('target.capFrame', 'Cap Frame');
+  const m = /^top-color-(\d+)-\d+$/.exec(target);
+  if (m) return `${t('target.color', 'Color')} ${+m[1] + 1}`;
+  return target;
 };
 
 export function createUi(
@@ -187,102 +188,96 @@ export function createUi(
 ) {
   // Small "?" help marker with a hover tooltip (tooltip itself is rendered to
   // <body> by the handler below so it is never clipped by the scrolling sidebar).
-  const tip = (text: string) =>
-    `<span class="help-tip" tabindex="0" role="img" aria-label="Help: ${text.replace(/"/g, '&quot;')}" data-tip="${text.replace(/"/g, '&quot;')}">?</span>`;
+  const tip = (key: string, en: string) => {
+    const text = t(key, en);
+    return `<span class="help-tip" tabindex="0" role="img" aria-label="Help: ${text.replace(/"/g, '&quot;')}" data-tip="${text.replace(/"/g, '&quot;')}">?</span>`;
+  };
 
   // Populate Left Sidebar (Settings + Preview)
   sidebarLeft.innerHTML = `
     <div class="app-header">
       <h1>Clicker Generator</h1>
-      <p class="app-subtitle">Generate printable 3D model of a clicker from an image</p>
+      <p class="app-subtitle">${t('app.subtitle', 'Generate printable 3D model of a clicker from an image')}</p>
     </div>
 
     <div class="section" id="previewViewSection">
-      <span class="label">Preview &amp; View</span>
+      <span class="label">${t('preview.label', 'Preview &amp; View')}</span>
       <div class="tabs" id="viewTabs" role="tablist" style="margin-bottom: 12px;">
-        <button class="tab active" data-view="assembled" type="button">Assembled</button>
-        <button class="tab" data-view="exploded" type="button">Exploded</button>
+        <button class="tab active" data-view="assembled" type="button">${t('preview.assembled', 'Assembled')}</button>
+        <button class="tab" data-view="exploded" type="button">${t('preview.exploded', 'Exploded')}</button>
       </div>
       <div class="switch-row">
-        <span class="switch-label">Show MX switch ${tip('Shows a reference MX switch in the preview so you can check the fit. It is not part of the exported model.')}</span>
+        <span class="switch-label">${t('preview.showSwitch', 'Show MX switch')} ${tip('preview.showSwitchTip', 'Shows a reference MX switch in the preview so you can check the fit. It is not part of the exported model.')}</span>
         <label class="toggle"><input id="showswitch" type="checkbox" /><span class="slider"></span></label>
       </div>
     </div>
 
     <div class="section" id="baseStyleSection">
-      <span class="label">Base style ${tip('Outline follows your image silhouette. Shape places the image on a preset base such as a circle or square.')}</span>
+      <span class="label">${t('baseStyle.label', 'Base style')} ${tip('baseStyle.tip', 'Outline follows your image silhouette. Shape places the image on a preset base such as a circle or square.')}</span>
       <div class="field">
         <div class="tabs" id="shapeTypeTabs" role="tablist" style="margin-bottom: 12px;">
-          <button class="tab" data-style="outline" type="button">Outline</button>
-          <button class="tab" data-style="shape" type="button">Shape</button>
+          <button class="tab" data-style="outline" type="button">${t('baseStyle.outline', 'Outline')}</button>
+          <button class="tab" data-style="shape" type="button">${t('baseStyle.shape', 'Shape')}</button>
         </div>
       </div>
       <div class="field" id="shapeSelectField" style="margin-bottom: 12px;">
-        <label for="shapeSelect">Shape geometry ${tip('The preset base shape used when the Shape base style is selected.')}</label>
+        <label for="shapeSelect">${t('shapeGeom.label', 'Shape geometry')} ${tip('shapeGeom.tip', 'The preset base shape used when the Shape base style is selected.')}</label>
         <select id="shapeSelect">
-          <option value="circle">Circle</option>
-          <option value="square">Square</option>
-          <option value="hexagon">Hexagon</option>
-          <option value="heart">Heart</option>
-          <option value="star">Star</option>
-          <option value="egg">Egg</option>
+          <option value="circle">${t('shape.circle', 'Circle')}</option>
+          <option value="square">${t('shape.square', 'Square')}</option>
+          <option value="hexagon">${t('shape.hexagon', 'Hexagon')}</option>
+          <option value="heart">${t('shape.heart', 'Heart')}</option>
+          <option value="star">${t('shape.star', 'Star')}</option>
+          <option value="egg">${t('shape.egg', 'Egg')}</option>
         </select>
       </div>
       <div class="prow-stacked">
         <div class="prow-header">
-          <label for="width">Size ${tip('Overall size of the clicker (its longest side, in mm). This scales the whole model proportionally, not just the width.')}</label>
+          <label for="width">${t('size.label', 'Size')} ${tip('size.tip', 'Overall size of the clicker (its longest side, in mm). This scales the whole model proportionally, not just the width.')}</label>
           <input type="text" class="val" id="widthVal" />
         </div>
-        <input type="range" id="width" min="20" max="70" step="1" />
+        <input type="range" id="width" min="20" max="2000" step="1" />
       </div>
     </div>
 
     <div id="geometrySettingsContainer">
       <details class="section section-collapsible" id="sectionColors">
-        <summary class="label collapsible-head">1 · Colors &amp; Smoothing</summary>
+        <summary class="label collapsible-head">${t('section.colors', '1 · Colors &amp; Smoothing')}</summary>
         <div class="collapsible-body">
         <div class="field" id="colorCountField">
-          <label for="ccount">Colors ${tip('How many distinct filament colors the image is split into. Each color becomes a separate part in the export.')}</label>
+          <label for="ccount">${t('colors.label', 'Colors')} ${tip('colors.tip', 'How many distinct filament colors the image is split into. Each color becomes a separate part in the export.')}</label>
           <select id="ccount">
-            <option value="2">2 Colors</option>
-            <option value="3">3 Colors</option>
-            <option value="4">4 Colors</option>
-            <option value="5">5 Colors</option>
-            <option value="6">6 Colors</option>
-            <option value="7">7 Colors</option>
-            <option value="8">8 Colors</option>
-            <option value="9">9 Colors</option>
-            <option value="10">10 Colors</option>
-            <option value="11">11 Colors</option>
-            <option value="12">12 Colors</option>
+            ${[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+              .map((n) => `<option value="${n}">${n} ${t('colors.unit', 'Colors')}</option>`)
+              .join('')}
           </select>
         </div>
         <div class="prow-stacked" id="smoothingField">
           <div class="prow-header">
-            <label for="smooth">Smoothing ${tip('Simplifies and smooths the traced outlines. Higher values give fewer, cleaner edges; lower keeps more fine detail.')}</label>
+            <label for="smooth">${t('smoothing.label', 'Smoothing')} ${tip('smoothing.tip', 'Simplifies and smooths the traced outlines. Higher values give fewer, cleaner edges; lower keeps more fine detail.')}</label>
             <input type="text" class="val" id="smoothVal" />
           </div>
           <input type="range" id="smooth" min="0" max="1" step="0.05" />
         </div>
         <div class="palette" id="palette">
-          <div class="hint">Load an image/vector to pick colors.</div>
+          <div class="hint">${t('palette.hint', 'Load an image/vector to pick colors.')}</div>
         </div>
         </div>
       </details>
 
       <details class="section section-collapsible" id="sectionShape">
-        <summary class="label collapsible-head">2 · More Settings</summary>
+        <summary class="label collapsible-head">${t('section.moreSettings', '2 · More Settings')}</summary>
         <div class="collapsible-body">
         <div class="keychain-panel" style="margin-bottom: 16px;">
           <div class="switch-row" style="margin-bottom: 12px;">
-            <span class="switch-label">Keychain ${tip('Adds a keyring attachment to the body so you can clip the clicker to a keychain.')}</span>
+            <span class="switch-label">${t('keychain.label', 'Keychain')} ${tip('keychain.tip', 'Adds a keyring attachment to the body so you can clip the clicker to a keychain.')}</span>
             <label class="toggle"><input id="keychain" type="checkbox" /><span class="slider"></span></label>
           </div>
           <div id="keychainOpts" style="display:none;">
 
             <div class="prow-stacked">
               <div class="prow-header">
-                <label>Position ${tip('Slides the keychain attachment around the edge of the body.')}</label>
+                <label>${t('keychain.position', 'Position')} ${tip('keychain.positionTip', 'Slides the keychain attachment around the edge of the body.')}</label>
               </div>
               <div class="tol-stepper" id="keychainRotStepper">
                 <button class="btn" id="keychainRotMinus" type="button" aria-label="Rotate counter-clockwise">⟲</button>
@@ -292,7 +287,7 @@ export function createUi(
             </div>
             <div class="prow-stacked">
               <div class="prow-header">
-                <label>Slide offset ${tip('Slides the keychain along the tangent of the body edge (fine-tuning).')}</label>
+                <label>${t('keychain.slideOffset', 'Slide offset')} ${tip('keychain.slideOffsetTip', 'Slides the keychain along the tangent of the body edge (fine-tuning).')}</label>
               </div>
               <div class="tol-stepper" id="keychainOffsetStepper">
                 <button class="btn" id="keychainOffsetMinus" type="button" aria-label="Slide left">−</button>
@@ -302,7 +297,7 @@ export function createUi(
             </div>
             <div class="prow-stacked">
               <div class="prow-header">
-                <label>Hole size ${tip('Diameter of the ring hole — size it for a keyring, cord, or carabiner.')}</label>
+                <label>${t('keychain.holeSize', 'Hole size')} ${tip('keychain.holeSizeTip', 'Diameter of the ring hole — size it for a keyring, cord, or carabiner.')}</label>
               </div>
               <div class="tol-stepper" id="keychainSizeStepper">
                 <button class="btn" id="keychainSizeMinus" type="button" aria-label="Smaller hole">−</button>
@@ -314,13 +309,13 @@ export function createUi(
         </div>
 
         <div class="global-edges" id="globalEdges" style="display:none; margin-bottom: 16px;">
-          <span class="gedge-heading">Edges ${tip('Round (fillet) or bevel (chamfer) the outer edges. “Cap top” shapes the keycap’s top rim. “Clicker base” shapes the body’s top and bottom edges together.')}</span>
+          <span class="gedge-heading">${t('edges.heading', 'Edges')} ${tip('edges.tip', 'Round (fillet) or bevel (chamfer) the outer edges. “Cap top” shapes the keycap’s top rim. “Clicker base” shapes the body’s top and bottom edges together.')}</span>
           <div class="gedge-row">
-            <span class="gedge-name">Cap top</span>
+            <span class="gedge-name">${t('edges.capTop', 'Cap top')}</span>
             <div class="edge-style-btns" data-edge="capTop">
-              <button class="edge-style-btn active" data-style="none" type="button">None</button>
-              <button class="edge-style-btn" data-style="fillet" type="button">Fillet</button>
-              <button class="edge-style-btn" data-style="chamfer" type="button">Chamfer</button>
+              <button class="edge-style-btn active" data-style="none" type="button">${t('edges.none', 'None')}</button>
+              <button class="edge-style-btn" data-style="fillet" type="button">${t('edges.fillet', 'Fillet')}</button>
+              <button class="edge-style-btn" data-style="chamfer" type="button">${t('edges.chamfer', 'Chamfer')}</button>
             </div>
             <div class="edge-size-btns gedge-size" data-edge="capTop" style="display:none;">
               <button class="btn edge-size-minus" type="button">−</button>
@@ -329,11 +324,11 @@ export function createUi(
             </div>
           </div>
           <div class="gedge-row">
-            <span class="gedge-name">Clicker base</span>
+            <span class="gedge-name">${t('edges.clickerBase', 'Clicker base')}</span>
             <div class="edge-style-btns" data-edge="clickerBase">
-              <button class="edge-style-btn active" data-style="none" type="button">None</button>
-              <button class="edge-style-btn" data-style="fillet" type="button">Fillet</button>
-              <button class="edge-style-btn" data-style="chamfer" type="button">Chamfer</button>
+              <button class="edge-style-btn active" data-style="none" type="button">${t('edges.none', 'None')}</button>
+              <button class="edge-style-btn" data-style="fillet" type="button">${t('edges.fillet', 'Fillet')}</button>
+              <button class="edge-style-btn" data-style="chamfer" type="button">${t('edges.chamfer', 'Chamfer')}</button>
             </div>
             <div class="edge-size-btns gedge-size" data-edge="clickerBase" style="display:none;">
               <button class="btn edge-size-minus" type="button">−</button>
@@ -345,21 +340,21 @@ export function createUi(
 
         <div class="prow-stacked">
           <div class="prow-header">
-            <label for="topthick">Top thickness ${tip('Thickness of the solid top layer beneath the colored image, in mm.')}</label>
+            <label for="topthick">${t('topThickness.label', 'Top thickness')} ${tip('topThickness.tip', 'Thickness of the solid top layer beneath the colored image, in mm.')}</label>
             <input type="text" class="val" id="topthickVal" />
           </div>
           <input type="range" id="topthick" min="1" max="4" step="0.1" />
         </div>
         <div class="prow-stacked">
           <div class="prow-header">
-            <label for="imgdepth">Image depth ${tip('How far the colored image is raised into the top surface, in mm.')}</label>
+            <label for="imgdepth">${t('imageDepth.label', 'Image depth')} ${tip('imageDepth.tip', 'How far the colored image is raised into the top surface, in mm.')}</label>
             <input type="text" class="val" id="imgdepthVal" />
           </div>
           <input type="range" id="imgdepth" min="0.2" max="3" step="0.1" />
         </div>
         <div class="prow-stacked">
           <div class="prow-header">
-            <label>Switch socket tolerance ${tip('Clearance between the top part and the base it presses into. Press + if the two halves are hard to fit together, − if they feel loose. 0 = default fit.')}</label>
+            <label>${t('socketTol.label', 'Switch socket tolerance')} ${tip('socketTol.tip', 'Clearance between the top part and the base it presses into. Press + if the two halves are hard to fit together, − if they feel loose. 0 = default fit.')}</label>
           </div>
           <div class="tol-stepper" id="socketTolStepper">
             <button class="btn" id="socketTolMinus" type="button" aria-label="Tighter fit">−</button>
@@ -369,7 +364,7 @@ export function createUi(
         </div>
         <div class="prow-stacked">
           <div class="prow-header">
-            <label>Switch stem (top part) tolerance ${tip('Scales the stem under the top part that grips your MX switch. If the stem is too tight to push onto the switch, press + to loosen it; press − for a firmer grip. Adjusts in 0.2 mm steps.')}</label>
+            <label>${t('stemTol.label', 'Switch stem (top part) tolerance')} ${tip('stemTol.tip', 'Scales the stem under the top part that grips your MX switch. If the stem is too tight to push onto the switch, press + to loosen it; press − for a firmer grip. Adjusts in 0.2 mm steps.')}</label>
           </div>
           <div class="tol-stepper" id="stemTolStepper">
             <button class="btn" id="stemTolMinus" type="button" aria-label="Tighter stem">−</button>
@@ -381,10 +376,10 @@ export function createUi(
       </details>
 
       <details class="section section-collapsible" id="sectionSwitch">
-        <summary class="label collapsible-head">3 · Switch</summary>
+        <summary class="label collapsible-head">${t('section.switch', '3 · Switch')}</summary>
         <div class="collapsible-body">
         <div class="field" style="margin-bottom:10px;">
-          <label>Switches ${tip('Use 1–3 MX switches for larger or wider designs — more click points and stability. Each switch can be moved and rotated individually.')}</label>
+          <label>${t('switches.label', 'Switches')} ${tip('switches.tip', 'Use 1–3 MX switches for larger or wider designs — more click points and stability. Each switch can be moved and rotated individually.')}</label>
           <div class="tabs" id="switchCount" role="tablist">
             <button class="tab active" data-count="1" type="button">1</button>
             <button class="tab" data-count="2" type="button">2</button>
@@ -392,7 +387,7 @@ export function createUi(
           </div>
         </div>
         <div class="tabs" id="switchChips" role="tablist" style="display:none; margin-bottom:10px;"></div>
-        <p class="switch-pad-hint">Move &amp; rotate the MX switch ${tip('Slide and rotate the selected MX switch away from the design centre. Handy when a switch doesn\'t sit neatly in the centre of your design.')}</p>
+        <p class="switch-pad-hint">${t('switches.moveRotateHint', 'Move &amp; rotate the MX switch')} ${tip('switches.moveRotateTip', 'Slide and rotate the selected MX switch away from the design centre. Handy when a switch doesn\'t sit neatly in the centre of your design.')}</p>
         <div class="switch-pad" id="switchPad">
           <button type="button" class="switch-pad-btn pad-rotl" data-rot="3" aria-label="Rotate switch left" title="Rotate left">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
@@ -416,21 +411,21 @@ export function createUi(
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
           </button>
         </div>
-        <div class="switch-pad-readout" id="switchReadout">Centered</div>
-        <button class="secondary" id="switchResetAll" type="button" style="display:none; width:100%; margin-top:8px;">Reset all switches</button>
+        <div class="switch-pad-readout" id="switchReadout">${t('switches.centered', 'Centered')}</div>
+        <button class="secondary" id="switchResetAll" type="button" style="display:none; width:100%; margin-top:8px;">${t('switches.resetAll', 'Reset all switches')}</button>
         </div>
       </details>
     </div>
 
     <div class="sidebar-sticky-footer">
       <div class="btn-row" id="historyControls">
-        <button id="undoBtn" class="secondary" type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled style="display: flex; justify-content: center; align-items: center;">
+        <button id="undoBtn" class="secondary" type="button" title="${t('history.undoTitle', 'Undo (Ctrl+Z)')}" aria-label="${t('history.undoAria', 'Undo')}" disabled style="display: flex; justify-content: center; align-items: center;">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
         </button>
-        <button id="refreshBtn" class="secondary" type="button" title="Refresh to Original" aria-label="Refresh" disabled style="display: flex; justify-content: center; align-items: center;">
+        <button id="refreshBtn" class="secondary" type="button" title="${t('history.refreshTitle', 'Refresh to Original')}" aria-label="${t('history.refreshAria', 'Refresh')}" disabled style="display: flex; justify-content: center; align-items: center;">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
         </button>
-        <button id="redoBtn" class="secondary" type="button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled style="display: flex; justify-content: center; align-items: center;">
+        <button id="redoBtn" class="secondary" type="button" title="${t('history.redoTitle', 'Redo (Ctrl+Shift+Z)')}" aria-label="${t('history.redoAria', 'Redo')}" disabled style="display: flex; justify-content: center; align-items: center;">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
         </button>
       </div>
@@ -440,7 +435,7 @@ export function createUi(
   // Populate Right Sidebar (Import, Export)
   sidebarRight.innerHTML = `
     <div class="section legend-section">
-      <span class="label">Import Source</span>
+      <span class="label">${t('importSource.label', 'Import Source')}</span>
       <div class="import-grid" id="importTabs" role="tablist">
         <button class="import-card active" data-mode="image" type="button">
           <span class="card-icon">
@@ -450,7 +445,7 @@ export function createUi(
               <polyline points="21 15 16 10 5 21"/>
             </svg>
           </span>
-          <span class="card-label">Image</span>
+          <span class="card-label">${t('importSource.image', 'Image')}</span>
         </button>
         <button class="import-card" data-mode="svg" type="button">
           <span class="card-icon">
@@ -460,7 +455,7 @@ export function createUi(
               <line x1="12" y1="22.08" x2="12" y2="12"/>
             </svg>
           </span>
-          <span class="card-label">SVG</span>
+          <span class="card-label">${t('importSource.svg', 'SVG')}</span>
         </button>
         <button class="import-card" data-mode="icon" type="button">
           <span class="card-icon">
@@ -471,7 +466,7 @@ export function createUi(
               <line x1="15" y1="9" x2="15.01" y2="9"/>
             </svg>
           </span>
-          <span class="card-label">Icon</span>
+          <span class="card-label">${t('importSource.icon', 'Icon')}</span>
         </button>
         <button class="import-card" data-mode="text" type="button">
           <span class="card-icon">
@@ -481,7 +476,7 @@ export function createUi(
               <line x1="12" y1="4" x2="12" y2="20"/>
             </svg>
           </span>
-          <span class="card-label">Text</span>
+          <span class="card-label">${t('importSource.text', 'Text')}</span>
         </button>
       </div>
 
@@ -493,16 +488,16 @@ export function createUi(
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          <div class="drop-title">Upload image</div>
-          <div class="drop-text">Drop an image, or <u>click to browse</u></div>
-          <span style="font-size:10px; opacity:0.8; display:block; margin-top:4px;">PNG with transparency works best</span>
+          <div class="drop-title">${t('upload.title', 'Upload image')}</div>
+          <div class="drop-text">${t('upload.dropText', 'Drop an image, or ')}<u>${t('upload.clickBrowse', 'click to browse')}</u></div>
+          <span style="font-size:10px; opacity:0.8; display:block; margin-top:4px;">${t('upload.pngHint', 'PNG with transparency works best')}</span>
         </div>
         <input type="file" id="file" accept="image/*" hidden />
         <div class="switch-row">
-          <span class="switch-label">Remove background ${tip('Automatically removes a solid or near-uniform background from the uploaded image so only the subject is traced.')}</span>
+          <span class="switch-label">${t('removeBg.label', 'Remove background')} ${tip('removeBg.tipImage', 'Automatically removes a solid or near-uniform background from the uploaded image so only the subject is traced.')}</span>
           <label class="toggle"><input id="removebg" type="checkbox" /><span class="slider"></span></label>
         </div>
-        <span class="sample-heading">Choose a sample image</span>
+        <span class="sample-heading">${t('sample.heading', 'Choose a sample image')}</span>
         <div class="sample-inline-grid" id="sampleGrid">
           ${SAMPLES.map((s, idx) => `
             <div class="sample-inline-item" data-idx="${idx}">
@@ -516,73 +511,77 @@ export function createUi(
       <!-- SVG Panel -->
       <div id="svgPanel" class="mode-panel" hidden>
         <p class="hint-text">
-          Drop or upload SVG vector files. Color paths will map to filament slots.
+          ${t('svgPanel.hint', 'Drop or upload SVG vector files. Color paths will map to filament slots.')}
         </p>
         <div id="uploadGallery"></div>
         <label class="upload-cta">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Upload SVG file(s)
+          ${t('svgPanel.uploadBtn', 'Upload SVG file(s)')}
           <input id="svgUpload" type="file" accept=".svg,image/svg+xml" multiple />
         </label>
         <div class="switch-row">
-          <span class="switch-label">Remove background ${tip('Drops a solid rectangle painted behind the artwork so only the logo is kept. Turn off to keep the SVG background.')}</span>
+          <span class="switch-label">${t('removeBg.label', 'Remove background')} ${tip('removeBg.tipSvg', 'Drops a solid rectangle painted behind the artwork so only the logo is kept. Turn off to keep the SVG background.')}</span>
           <label class="toggle"><input id="removebgSvg" type="checkbox" /><span class="slider"></span></label>
         </div>
-        <button class="primary" id="generateSvg" style="margin-top: 10px; width: 100%;">Generate</button>
+        <button class="primary" id="generateSvg" style="margin-top: 10px; width: 100%;">${t('generate', 'Generate')}</button>
       </div>
 
       <!-- Icon Panel -->
       <div id="iconPanel" class="mode-panel" hidden>
         <div id="iconSearchWrap">
-          <input id="iconSearch" type="search" placeholder="Search Lucide icons…" autocomplete="off" spellcheck="false" />
-          <button id="iconSearchClear" type="button" aria-label="Clear search">×</button>
+          <input id="iconSearch" type="search" placeholder="${t('iconPanel.searchPlaceholder', 'Search Lucide icons…')}" autocomplete="off" spellcheck="false" />
+          <button id="iconSearchClear" type="button" aria-label="${t('iconPanel.clearSearch', 'Clear search')}">×</button>
         </div>
         <div id="iconCount"></div>
         <div id="gallery"></div>
-        <button class="primary" id="generateIcon" style="margin-top: 10px; width: 100%;">Generate</button>
+        <button class="primary" id="generateIcon" style="margin-top: 10px; width: 100%;">${t('generate', 'Generate')}</button>
       </div>
 
       <!-- Text Panel -->
       <div id="letterPanel" class="mode-panel" hidden>
         <div class="field">
-          <label for="letterText">Custom Text</label>
-          <textarea id="letterText" rows="2" maxlength="30" autocomplete="off" spellcheck="false" style="width: 100%; resize: vertical; min-height: 48px;">Custom\nText</textarea>
+          <label for="letterText">${t('textPanel.customText', 'Custom Text')}</label>
+          <textarea id="letterText" rows="2" maxlength="30" autocomplete="off" spellcheck="false" style="width: 100%; resize: vertical; min-height: 48px;">${t('textPanel.defaultContent', 'Custom\\nText')}</textarea>
         </div>
         <div class="field">
-          <label>Font</label>
+          <label>${t('textPanel.font', 'Font')}</label>
           <div id="fontGrid" class="font-grid"></div>
           <label class="upload">
-            + Import font
+            ${t('textPanel.importFont', '+ Import font')}
             <input id="fontUpload" type="file" accept=".ttf,.otf,.json,font/ttf,font/otf,application/json" />
           </label>
         </div>
-        <button class="primary" id="generateText" style="margin-top: 10px; width: 100%;">Generate</button>
+        <button class="primary" id="generateText" style="margin-top: 10px; width: 100%;">${t('generate', 'Generate')}</button>
       </div>
     </div>
 
     <div class="sidebar-sticky-footer">
-      <button class="primary" id="export" style="width:100%;">Download 3MF</button>
+      <button class="primary" id="export" style="width:100%;">${t('footer.download3mf', 'Download 3MF')}</button>
       <div id="projectSettingsContainer">
         <div class="btn-row">
-          <button id="saveProj" class="secondary utility-btn" type="button" aria-label="Save project">
+          <button id="saveProj" class="secondary utility-btn" type="button" aria-label="${t('footer.saveProject', 'Save project')}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            <span>Save project</span>
+            <span>${t('footer.saveProject', 'Save project')}</span>
           </button>
-          <button id="loadProj" class="secondary utility-btn" type="button" aria-label="Load project">
+          <button id="loadProj" class="secondary utility-btn" type="button" aria-label="${t('footer.loadProject', 'Load project')}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>Load project</span>
+            <span>${t('footer.loadProject', 'Load project')}</span>
           </button>
           <input type="file" id="projFile" accept="application/json" hidden />
         </div>
         <div class="btn-row footer-utility-row">
-          <button id="helpToggle" class="secondary utility-btn" type="button" aria-label="Show intro and help">
+          <button id="helpToggle" class="secondary utility-btn" type="button" aria-label="${t('footer.helpAria', 'Show intro and help')}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <span>Help</span>
+            <span>${t('footer.help', 'Help')}</span>
           </button>
-          <button id="themeToggle" class="secondary utility-btn" type="button" aria-label="Toggle theme">
+          <button id="langToggle" class="secondary utility-btn" type="button" aria-label="${t('footer.langToggleAria', 'Switch language')}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span id="langLabel">Tiếng Việt</span>
+          </button>
+          <button id="themeToggle" class="secondary utility-btn" type="button" aria-label="${t('footer.themeToggleAria', 'Toggle theme')}">
             <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
             <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            <span id="themeLabel">Dark mode</span>
+            <span id="themeLabel">${t('footer.darkMode', 'Dark mode')}</span>
           </button>
         </div>
       </div>
@@ -853,7 +852,7 @@ export function createUi(
       overlay.setAttribute('hidden', '');
       overlay.innerHTML = `
         <div class="loading-spinner"></div>
-        <div class="loading-text">Generating 3D model…</div>
+        <div class="loading-text">${t('loading.generating3d', 'Generating 3D model…')}</div>
       `;
       viewport.appendChild(overlay);
     }
@@ -865,15 +864,15 @@ export function createUi(
     modeBar.innerHTML = `
       <button class="edit-mode-btn active" data-editmode="color" type="button">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
-        Color
+        ${t('editMode.color', 'Color')}
       </button>
       <button class="edit-mode-btn" data-editmode="extrude" type="button">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
-        Extrude
+        ${t('editMode.extrude', 'Extrude')}
       </button>
       <button class="edit-mode-btn" data-editmode="edges" type="button" style="display:none;">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4" ry="4"/></svg>
-        Edges
+        ${t('editMode.edges', 'Edges')}
       </button>
     `;
     viewport.appendChild(modeBar);
@@ -890,7 +889,7 @@ export function createUi(
     lettersToggle.className = 'letters-toggle';
     lettersToggle.setAttribute('hidden', '');
     lettersToggle.innerHTML = `
-      <span>Separate letters</span>
+      <span>${t('letters.separate', 'Separate letters')}</span>
       <label class="toggle"><input type="checkbox" id="separateLetters" /><span class="slider"></span></label>
     `;
     viewport.appendChild(lettersToggle);
@@ -905,17 +904,17 @@ export function createUi(
     extrudePanel.className = 'edges-panel';
     extrudePanel.setAttribute('hidden', '');
     extrudePanel.innerHTML = `
-      <div class="edges-title">Extrude Part</div>
-      <div id="extrudeLevelLabel" style="text-align:center; margin-top:8px; font-size:13px; color:var(--muted);">Level: 0</div>
+      <div class="edges-title">${t('extrude.title', 'Extrude Part')}</div>
+      <div id="extrudeLevelLabel" style="text-align:center; margin-top:8px; font-size:13px; color:var(--muted);">${t('editMode.level', 'Level: {n}').replace('{n}', '0')}</div>
       <div style="display:flex; gap:8px; margin-top:8px;">
         <button type="button" class="btn" id="extrudeMinus" style="flex:1; font-size:18px;">-</button>
         <button type="button" class="btn" id="extrudePlus" style="flex:1; font-size:18px;">+</button>
       </div>
       <div class="extrude-chamfer-row">
-        <span>Chamfer edges</span>
+        <span>${t('extrude.chamferEdges', 'Chamfer edges')}</span>
         <label class="toggle"><input type="checkbox" id="extrudeChamfer" /><span class="slider"></span></label>
       </div>
-      <div class="panel-hint">Raises or lowers the selected color. Shift-click parts to select several.</div>
+      <div class="panel-hint">${t('extrude.hint', 'Raises or lowers the selected color. Shift-click parts to select several.')}</div>
     `;
     viewport.appendChild(extrudePanel);
 
@@ -935,9 +934,9 @@ export function createUi(
     edgesPanel.className = 'edges-panel';
     edgesPanel.setAttribute('hidden', '');
     edgesPanel.innerHTML = `
-      <div class="edges-title" id="edgesTitle">Edge Modifications</div>
+      <div class="edges-title" id="edgesTitle">${t('edges.panelTitleEmpty', 'Edge Modifications')}</div>
       <div id="edgesContent"></div>
-      <div class="panel-hint">Select a part to round (fillet) or bevel (chamfer) its top edge. Shift-click for several.</div>
+      <div class="panel-hint">${t('edges.hintPerPart', 'Select a part to round (fillet) or bevel (chamfer) its top edge. Shift-click for several.')}</div>
     `;
     viewport.appendChild(edgesPanel);
 
@@ -966,8 +965,8 @@ export function createUi(
   // --- Import mode tabs ---
   const importTabs = $('importTabs');
   importTabs.addEventListener('click', (e) => {
-    const t = (e.target as HTMLElement).closest('[data-mode]') as HTMLElement | null;
-    if (t) cb.onImportMode(t.dataset.mode as any);
+    const hit = (e.target as HTMLElement).closest('[data-mode]') as HTMLElement | null;
+    if (hit) cb.onImportMode(hit.dataset.mode as any);
   });
 
   // --- Colors ---
@@ -981,9 +980,9 @@ export function createUi(
   const shapeSelect = $<HTMLSelectElement>('shapeSelect');
 
   shapeTypeTabs.addEventListener('click', (e) => {
-    const t = (e.target as HTMLElement).closest('[data-style]') as HTMLElement | null;
-    if (!t) return;
-    const style = t.dataset.style;
+    const hit = (e.target as HTMLElement).closest('[data-style]') as HTMLElement | null;
+    if (!hit) return;
+    const style = hit.dataset.style;
     if (style === 'outline') {
       cb.onShape('outline');
     } else {
@@ -1033,12 +1032,12 @@ export function createUi(
 
   // --- Switch count + active-switch chips + reset-all ---
   $('switchCount').addEventListener('click', (e) => {
-    const t = (e.target as HTMLElement).closest('[data-count]') as HTMLElement | null;
-    if (t) cb.onSwitchCount(+t.dataset.count!);
+    const hit = (e.target as HTMLElement).closest('[data-count]') as HTMLElement | null;
+    if (hit) cb.onSwitchCount(+hit.dataset.count!);
   });
   $('switchChips').addEventListener('click', (e) => {
-    const t = (e.target as HTMLElement).closest('[data-sw]') as HTMLElement | null;
-    if (t) cb.onActiveSwitch(+t.dataset.sw!);
+    const hit = (e.target as HTMLElement).closest('[data-sw]') as HTMLElement | null;
+    if (hit) cb.onActiveSwitch(+hit.dataset.sw!);
   });
   $('switchResetAll').addEventListener('click', () => cb.onSwitchResetAll());
 
@@ -1103,8 +1102,8 @@ export function createUi(
   // --- View tabs ---
   const viewTabs = $('viewTabs');
   viewTabs.addEventListener('click', (e) => {
-    const t = (e.target as HTMLElement).closest('[data-view]') as HTMLElement | null;
-    if (t) cb.onView(t.dataset.view as ViewMode);
+    const hit = (e.target as HTMLElement).closest('[data-view]') as HTMLElement | null;
+    if (hit) cb.onView(hit.dataset.view as ViewMode);
   });
 
   $<HTMLInputElement>('showswitch').addEventListener('change', (e) =>
@@ -1127,7 +1126,7 @@ export function createUi(
   const themeLabel = $('themeLabel');
   const syncThemeLabel = () => {
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    themeLabel.textContent = isLight ? 'Dark mode' : 'Light mode';
+    themeLabel.textContent = isLight ? t('footer.darkMode', 'Dark mode') : t('footer.lightMode', 'Light mode');
   };
   syncThemeLabel();
   $('themeToggle').addEventListener('click', () => {
@@ -1136,6 +1135,21 @@ export function createUi(
     cb.onThemeChange(next);
     // onThemeChange flips data-theme synchronously; re-read to update the label.
     syncThemeLabel();
+  });
+
+  // --- Language toggle ---
+  // Text is baked into the sidebar templates at build time, so switching
+  // language reloads the page (like a hard theme change) rather than trying
+  // to live-patch every label. The label shows the language you'll switch *to*.
+  const langLabel = $('langLabel');
+  const syncLangLabel = () => {
+    langLabel.textContent = getLang() === 'vi' ? 'English' : 'Tiếng Việt';
+  };
+  syncLangLabel();
+  $('langToggle').addEventListener('click', () => {
+    const next: Lang = getLang() === 'vi' ? 'en' : 'vi';
+    setLang(next);
+    window.location.reload();
   });
 
   // --- Help tooltips ---
@@ -1188,33 +1202,33 @@ export function createUi(
     wm.className = 'welcome-overlay';
     wm.innerHTML = `
       <div class="welcome-card">
-        <h2>Welcome to Clicker Generator 👋</h2>
-        <p>Turn any image, SVG, icon, or text into a multi-color 3D printable clicker, ready for Bambu Studio or PrusaSlicer.</p>
+        <h2>${t('welcome.title', 'Welcome to Clicker Generator 👋')}</h2>
+        <p>${t('welcome.body', 'Turn any image, SVG, icon, or text into a multi-color 3D printable clicker, ready for Bambu Studio or PrusaSlicer.')}</p>
         <div class="welcome-steps">
           <div class="welcome-step">
             <div class="welcome-step-num">1</div>
             <div class="welcome-step-text">
-              <strong>Import your design</strong>
-              <span>Drop an image or choose a sample, upload an SVG, pick a Lucide icon, or type custom text.</span>
+              <strong>${t('welcome.step1.title', 'Import your design')}</strong>
+              <span>${t('welcome.step1.text', 'Drop an image or choose a sample, upload an SVG, pick a Lucide icon, or type custom text.')}</span>
             </div>
           </div>
           <div class="welcome-step">
             <div class="welcome-step-num">2</div>
             <div class="welcome-step-text">
-              <strong>Configure the clicker</strong>
-              <span>Pick colors &amp; filaments, choose a shape, adjust the size and depth.</span>
+              <strong>${t('welcome.step2.title', 'Configure the clicker')}</strong>
+              <span>${t('welcome.step2.text', 'Pick colors &amp; filaments, choose a shape, adjust the size and depth.')}</span>
             </div>
           </div>
           <div class="welcome-step">
             <div class="welcome-step-num">3</div>
             <div class="welcome-step-text">
-              <strong>Export &amp; print</strong>
-              <span>Download the 3MF file and load it directly into your slicer. Each color is a separate part.</span>
+              <strong>${t('welcome.step3.title', 'Export &amp; print')}</strong>
+              <span>${t('welcome.step3.text', 'Download the 3MF file and load it directly into your slicer. Each color is a separate part.')}</span>
             </div>
           </div>
         </div>
         <div class="welcome-foot">
-          <button class="primary" id="welcomeClose" style="min-width:150px">Get started →</button>
+          <button class="primary" id="welcomeClose" style="min-width:150px">${t('welcome.getStarted', 'Get started →')}</button>
         </div>
       </div>
     `;
@@ -1255,21 +1269,21 @@ export function createUi(
     const check = `<svg class="whats-new-check" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
     wm.innerHTML = `
       <div class="welcome-card whats-new-card">
-        <div class="whats-new-badge">What's new</div>
-        <h2>Latest updates ✨</h2>
-        <p>A few improvements landed since your last visit:</p>
+        <div class="whats-new-badge">${t('update.badge', "What's new")}</div>
+        <h2>${t('update.title', 'Latest updates ✨')}</h2>
+        <p>${t('update.intro', 'A few improvements landed since your last visit:')}</p>
         <ul class="whats-new-list">
-          <li>${check}<span><strong>Sharper image tracing</strong>: high-quality resampling, perceptual color matching, and detail-preserving smoothing keep fine text and small features intact.</span></li>
-          <li>${check}<span><strong>Multiple switches</strong>: use 1–3 MX switches for bigger designs — each one moves and rotates on its own from the <em>Switch</em> section.</span></li>
-          <li>${check}<span><strong>Keychain loop</strong>: add a keyring loop, slide it around the body edge, adjust its tangent slide offset, or resize the ring hole.</span></li>
-          <li>${check}<span><strong>Polish &amp; fixes</strong>: lots of smaller improvements across the app.</span></li>
+          <li>${check}<span>${t('update.item1', '<strong>Sharper image tracing</strong>: high-quality resampling, perceptual color matching, and detail-preserving smoothing keep fine text and small features intact.')}</span></li>
+          <li>${check}<span>${t('update.item2', '<strong>Multiple switches</strong>: use 1–3 MX switches for bigger designs — each one moves and rotates on its own from the <em>Switch</em> section.')}</span></li>
+          <li>${check}<span>${t('update.item3', '<strong>Keychain loop</strong>: add a keyring loop, slide it around the body edge, adjust its tangent slide offset, or resize the ring hole.')}</span></li>
+          <li>${check}<span>${t('update.item4', '<strong>Polish &amp; fixes</strong>: lots of smaller improvements across the app.')}</span></li>
         </ul>
         <div class="whats-new-foot">
           <label class="whats-new-dismiss">
             <input type="checkbox" id="updateDontShow" />
-            Don't show again
+            ${t('update.dontShowAgain', "Don't show again")}
           </label>
-          <button class="primary" id="updateClose" style="min-width:130px">Got it →</button>
+          <button class="primary" id="updateClose" style="min-width:130px">${t('update.gotIt', 'Got it →')}</button>
         </div>
       </div>
     `;
@@ -1301,73 +1315,73 @@ export function createUi(
     {
       focus: 'right',
       target: '#importTabs',
-      title: 'Import Source',
-      text: 'Choose how to generate your 3D clicker model. You can upload any custom <strong>Image</strong> (PNG with transparency works best), choose from <strong>1700+ vector icons</strong>, import custom <strong>SVG</strong> files, or enter your own custom <strong>Text</strong>.',
+      title: t('tutorial.step1.title', 'Import Source'),
+      text: t('tutorial.step1.text', 'Choose how to generate your 3D clicker model. You can upload any custom <strong>Image</strong> (PNG with transparency works best), choose from <strong>1700+ vector icons</strong>, import custom <strong>SVG</strong> files, or enter your own custom <strong>Text</strong>.'),
       arrow: 'right'
     },
     {
       focus: 'right',
       target: '#export',
-      title: 'Export 3MF Model',
-      text: 'Once you are satisfied with your clicker design, click here to download the high-quality, print-ready <strong>3MF file</strong>. 3MF is the modern standard format which contains multi-color data, ready to open directly in your favorite slicer (such as Bambu Studio, OrcaSlicer, or PrusaSlicer).',
+      title: t('tutorial.step2.title', 'Export 3MF Model'),
+      text: t('tutorial.step2.text', 'Once you are satisfied with your clicker design, click here to download the high-quality, print-ready <strong>3MF file</strong>. 3MF is the modern standard format which contains multi-color data, ready to open directly in your favorite slicer (such as Bambu Studio, OrcaSlicer, or PrusaSlicer).'),
       arrow: 'right'
     },
     {
       focus: 'right',
       target: '#projectSettingsContainer',
-      title: 'Project Settings',
-      text: 'Save your work-in-progress clicker as a <code>.json</code> file to resume editing later, load previous projects, toggle between dark and light themes, or access this help guide.',
+      title: t('tutorial.step3.title', 'Project Settings'),
+      text: t('tutorial.step3.text', 'Save your work-in-progress clicker as a <code>.json</code> file to resume editing later, load previous projects, toggle between dark and light themes, or access this help guide.'),
       arrow: 'right'
     },
     {
       focus: 'center',
       target: '#app',
-      title: '3D Preview Viewport',
-      text: 'This is where you can preview your design in 3D. Tip: <strong>Left-click & drag</strong> to orbit, <strong>Right-click & drag</strong> to pan, and <strong>Scroll</strong> to zoom.',
+      title: t('tutorial.step4.title', '3D Preview Viewport'),
+      text: t('tutorial.step4.text', 'This is where you can preview your design in 3D. Tip: <strong>Left-click & drag</strong> to orbit, <strong>Right-click & drag</strong> to pan, and <strong>Scroll</strong> to zoom.'),
       arrow: 'none',
       cardPosition: 'left'
     },
     {
       focus: 'center',
       target: '#editModeBar',
-      title: 'Paint & Height Modes',
-      text: 'Switch between <strong>Color Mode</strong> (paint individual segments with different filament colors) and <strong>Extrude Mode</strong> (raise parts of the design, adjust their thickness and height, and chamfer the raised edges). Working with custom <strong>Text</strong>? Toggle <strong>Separate letters</strong> here to color or extrude each letter on its own.',
+      title: t('tutorial.step5.title', 'Paint & Height Modes'),
+      text: t('tutorial.step5.text', 'Switch between <strong>Color Mode</strong> (paint individual segments with different filament colors) and <strong>Extrude Mode</strong> (raise parts of the design, adjust their thickness and height, and chamfer the raised edges). Working with custom <strong>Text</strong>? Toggle <strong>Separate letters</strong> here to color or extrude each letter on its own.'),
       arrow: 'up',
       cardPosition: 'left'
     },
     {
       focus: 'left',
       target: '#previewViewSection',
-      title: 'Assembly Preview',
-      text: 'Preview your model in an <strong>Assembled</strong> state or view it <strong>Exploded</strong> to see how all the 3D-printable parts fit together. You can also show a reference mechanical keyboard MX switch to check fitment.',
+      title: t('tutorial.step6.title', 'Assembly Preview'),
+      text: t('tutorial.step6.text', 'Preview your model in an <strong>Assembled</strong> state or view it <strong>Exploded</strong> to see how all the 3D-printable parts fit together. You can also show a reference mechanical keyboard MX switch to check fitment.'),
       arrow: 'left'
     },
     {
       focus: 'left',
       target: '#baseStyleSection',
-      title: 'Base Outline Shape',
-      text: 'Select the overall base shape for your clicker. You can choose a <strong>Custom Outline</strong> (which matches your imported graphic\'s boundaries), or standard geometries like a <strong>Circle</strong> or <strong>Hexagon</strong>. You can also scale the overall size here.',
+      title: t('tutorial.step7.title', 'Base Outline Shape'),
+      text: t('tutorial.step7.text', 'Select the overall base shape for your clicker. You can choose a <strong>Custom Outline</strong> (which matches your imported graphic\'s boundaries), or standard geometries like a <strong>Circle</strong> or <strong>Hexagon</strong>. You can also scale the overall size here.'),
       arrow: 'left'
     },
     {
       focus: 'left',
       target: '#geometrySettingsContainer',
-      title: 'Geometry & Style Settings',
-      text: 'Fine-tune your model in collapsible sections. <strong>1 · Colors &amp; Smoothing</strong> picks filament colors and smooths the outline. <strong>2 · More Settings</strong> adds a keychain loop, changes thicknesses, and dials in the <strong>switch socket &amp; stem fit tolerances</strong> that control how tightly the top and bottom parts clip together.',
+      title: t('tutorial.step8.title', 'Geometry & Style Settings'),
+      text: t('tutorial.step8.text', 'Fine-tune your model in collapsible sections. <strong>1 · Colors &amp; Smoothing</strong> picks filament colors and smooths the outline. <strong>2 · More Settings</strong> adds a keychain loop, changes thicknesses, and dials in the <strong>switch socket &amp; stem fit tolerances</strong> that control how tightly the top and bottom parts clip together.'),
       arrow: 'left'
     },
     {
       focus: 'left',
       target: '#sectionSwitch',
-      title: 'Position the Switch',
-      text: 'Open the <strong>3 · Switch</strong> section to <strong>move and rotate</strong> the MX switch. Handy when the switch doesn\'t sit neatly in the centre of your design.',
+      title: t('tutorial.step9.title', 'Position the Switch'),
+      text: t('tutorial.step9.text', 'Open the <strong>3 · Switch</strong> section to <strong>move and rotate</strong> the MX switch. Handy when the switch doesn\'t sit neatly in the centre of your design.'),
       arrow: 'left'
     },
     {
       focus: 'left',
       target: '#historyControls',
-      title: 'Undo, Redo & Refresh',
-      text: 'Use these buttons to easily undo or redo your design steps, or refresh the model to its original state.',
+      title: t('tutorial.step10.title', 'Undo, Redo & Refresh'),
+      text: t('tutorial.step10.text', 'Use these buttons to easily undo or redo your design steps, or refresh the model to its original state.'),
       arrow: 'left'
     }
   ];
@@ -1428,11 +1442,11 @@ export function createUi(
         <div class="tutorial-controls">
           <label class="tutorial-checkbox">
             <input type="checkbox" id="tutDontShow" ${localStorage.getItem('clicker_tutorial_dismissed') === 'true' ? 'checked' : ''} />
-            Don't show again
+            ${t('tutorial.dontShowAgain', "Don't show again")}
           </label>
           <div class="tutorial-nav">
-            <button class="secondary" id="tutPrev" ${stepIndex === 0 ? 'disabled' : ''}>Previous</button>
-            <button class="primary" id="tutNext">${stepIndex === TUTORIAL_STEPS.length - 1 ? 'Finish' : 'Next'}</button>
+            <button class="secondary" id="tutPrev" ${stepIndex === 0 ? 'disabled' : ''}>${t('tutorial.previous', 'Previous')}</button>
+            <button class="primary" id="tutNext">${stepIndex === TUTORIAL_STEPS.length - 1 ? t('tutorial.finish', 'Finish') : t('tutorial.next', 'Next')}</button>
           </div>
         </div>
       `;
@@ -1520,11 +1534,11 @@ export function createUi(
     wm.className = 'welcome-overlay';
     wm.innerHTML = `
       <div class="welcome-card" style="align-items: center; text-align: center; width: 380px; padding: 32px;">
-        <h2 style="margin-bottom: 8px;">Getting Started</h2>
-        <p style="margin-bottom: 24px;">Do you want to see the interactive tutorial?</p>
+        <h2 style="margin-bottom: 8px;">${t('tutorialPrompt.title', 'Getting Started')}</h2>
+        <p style="margin-bottom: 24px;">${t('tutorialPrompt.body', 'Do you want to see the interactive tutorial?')}</p>
         <div style="display: flex; gap: 12px; justify-content: center; width: 100%;">
-          <button class="secondary" id="tutPromptNo" style="flex: 1;">No</button>
-          <button class="primary" id="tutPromptYes" style="flex: 1;">Yes</button>
+          <button class="secondary" id="tutPromptNo" style="flex: 1;">${t('tutorialPrompt.no', 'No')}</button>
+          <button class="primary" id="tutPromptYes" style="flex: 1;">${t('tutorialPrompt.yes', 'Yes')}</button>
         </div>
       </div>
     `;
@@ -1544,7 +1558,7 @@ export function createUi(
 
   function getFilamentNameAndHex(rgb: RGB): [string, string] {
     let bestHex = rgbHex(rgb);
-    let bestName = 'Custom Color';
+    let bestName = t('filament.customColor', 'Custom Color');
     let bestD = Infinity;
     for (const [name, hex] of FILAMENTS) {
       const [fr, fg, fb] = hexRgb(hex);
@@ -1605,7 +1619,7 @@ export function createUi(
     // Custom color: live-updates while dragging, stays open until dismissed.
     const custom = document.createElement('label');
     custom.className = 'cp-custom';
-    custom.title = 'Custom color';
+    custom.title = t('swatch.customColor', 'Custom color');
     const inp = document.createElement('input');
     inp.type = 'color';
     inp.value = /^#[0-9a-f]{6}$/i.test(currentHex) ? currentHex : '#888888';
@@ -1656,10 +1670,10 @@ export function createUi(
     const bodyRow = document.createElement('div');
     bodyRow.className = 'fil-row body-row';
     bodyRow.innerHTML = `
-      <span class="slot-no slot-body">Body</span>
-      <span class="swatch" style="background:#787c82; opacity: 0.5;" title="default body color"></span>
+      <span class="slot-no slot-body">${t('target.body', 'Body')}</span>
+      <span class="swatch" style="background:#787c82; opacity: 0.5;" title="${t('swatch.defaultBodyColor', 'default body color')}"></span>
       <span class="arrow">→</span>
-      <button type="button" class="fil-chip" title="clicker body color" style="background:${rgbHex(bodyColorRgb)}"></button>
+      <button type="button" class="fil-chip" title="${t('swatch.clickerBodyColor', 'clicker body color')}" style="background:${rgbHex(bodyColorRgb)}"></button>
     `;
 
     const bodyChip = bodyRow.querySelector('.fil-chip')!;
@@ -1675,7 +1689,7 @@ export function createUi(
     if (palette.length === 0) {
       const hint = document.createElement('div');
       hint.className = 'hint';
-      hint.textContent = 'Load an image/vector to pick colors.';
+      hint.textContent = t('palette.hint', 'Load an image/vector to pick colors.');
       pal.appendChild(hint);
     } else {
       palette.forEach((entry, i) => {
@@ -1683,9 +1697,9 @@ export function createUi(
         row.className = 'fil-row';
         row.innerHTML = `
           <span class="slot-no">${i + 1}</span>
-          <span class="swatch" style="background:${rgbHex(entry.quantRgb)}" title="detected color"></span>
+          <span class="swatch" style="background:${rgbHex(entry.quantRgb)}" title="${t('swatch.detectedColor', 'detected color')}"></span>
           <span class="arrow">→</span>
-          <button type="button" class="fil-chip" title="filament" style="background:${rgbHex(entry.filamentRgb)}"></button>`;
+          <button type="button" class="fil-chip" title="${t('swatch.filament', 'filament')}" style="background:${rgbHex(entry.filamentRgb)}"></button>`;
 
         const chip = row.querySelector('.fil-chip')!;
         chip.addEventListener('click', (e) => {
@@ -1698,10 +1712,10 @@ export function createUi(
         pal.appendChild(row);
       });
 
-      const tip = document.createElement('div');
-      tip.className = 'hint model-recolor-tip';
-      tip.textContent = 'Tip: click any color on the 3D model to recolor it.';
-      pal.appendChild(tip);
+      const recolorTip = document.createElement('div');
+      recolorTip.className = 'hint model-recolor-tip';
+      recolorTip.textContent = t('palette.recolorTip', 'Tip: click any color on the 3D model to recolor it.');
+      pal.appendChild(recolorTip);
     }
   }
 
@@ -1714,14 +1728,15 @@ export function createUi(
       if (!existingOpt) {
         const opt = document.createElement('option');
         opt.value = String(state.colorCount);
-        opt.textContent = `${state.colorCount} Colors (Limited)`;
+        opt.dataset.limited = 'true';
+        opt.textContent = `${state.colorCount} ${t('colors.unit', 'Colors')} (${t('colors.limited', 'Limited')})`;
         ccount.appendChild(opt);
       }
       ccount.value = String(state.colorCount);
     } else {
       ccount.disabled = false;
       ccount.querySelectorAll('option').forEach(opt => {
-        if (opt.textContent?.includes('Limited')) {
+        if ((opt as HTMLOptionElement).dataset.limited === 'true') {
           opt.remove();
         }
       });
@@ -1922,7 +1937,7 @@ export function createUi(
         if (state.selectedParts.length === 0) {
           if (plusBtn) plusBtn.disabled = true;
           if (minusBtn) minusBtn.disabled = true;
-          if (labelEl) labelEl.textContent = 'Select a part';
+          if (labelEl) labelEl.textContent = t('editMode.selectAPart', 'Select a part');
         } else {
           if (plusBtn) plusBtn.disabled = false;
           if (minusBtn) minusBtn.disabled = false;
@@ -1931,8 +1946,10 @@ export function createUi(
             const level = state.componentHeights[firstPart] ?? 0;
             const n = state.selectedParts.length;
             labelEl.textContent = n > 1
-              ? `${n} parts selected · Level: ${level.toFixed(1)}`
-              : `Level: ${level.toFixed(1)}`;
+              ? t('editMode.partsSelectedLevel', '{count} parts selected · Level: {n}')
+                  .replace('{count}', String(n))
+                  .replace('{n}', level.toFixed(1))
+              : t('editMode.level', 'Level: {n}').replace('{n}', level.toFixed(1));
           }
         }
       } else {
@@ -1975,28 +1992,28 @@ export function createUi(
         edgesPanelEl.removeAttribute('hidden');
 
         if (state.selectedParts.length === 0) {
-          edgesTitleEl.textContent = 'Edge Modifications';
+          edgesTitleEl.textContent = t('edges.panelTitleEmpty', 'Edge Modifications');
           if (!edgesContentEl.querySelector('.edges-empty')) {
             edgesContentEl.innerHTML =
-              `<div class="edges-empty">Click a part on the model to round or bevel its top edge.<br/>Cap &amp; base edges are in the left panel, under <strong>Shape &amp; Size</strong>.</div>`;
+              `<div class="edges-empty">${t('edges.emptyState', 'Click a part on the model to round or bevel its top edge.<br/>Cap &amp; base edges are in the left panel, under <strong>Shape &amp; Size</strong>.')}</div>`;
           }
         } else {
           const targets = state.selectedParts;
-          edgesTitleEl.textContent = 'Part Edges';
+          edgesTitleEl.textContent = t('edges.panelTitleSelected', 'Part Edges');
 
           // Rebuild DOM only if targets changed (crude but effective)
           const currentTargets = Array.from(edgesContentEl.querySelectorAll('.edge-style-btns')).map(r => (r as HTMLElement).dataset.edge);
           if (targets.join(',') !== currentTargets.join(',')) {
-            edgesContentEl.innerHTML = targets.map(t => {
-              const label = friendlyTargetLabel(t);
+            edgesContentEl.innerHTML = targets.map(target => {
+              const label = friendlyTargetLabel(target);
               return `
-                <div class="edge-label" title="${t}" style="margin-bottom: 4px;">${label} <span class="edge-radius-label" style="color:var(--muted);"></span></div>
-                <div class="edge-style-btns" data-edge="${t}" style="margin-bottom: 8px;">
-                  <button class="edge-style-btn active" data-style="none" type="button">None</button>
-                  <button class="edge-style-btn" data-style="fillet" type="button">Fillet</button>
-                  <button class="edge-style-btn" data-style="chamfer" type="button">Chamfer</button>
+                <div class="edge-label" title="${target}" style="margin-bottom: 4px;">${label} <span class="edge-radius-label" style="color:var(--muted);"></span></div>
+                <div class="edge-style-btns" data-edge="${target}" style="margin-bottom: 8px;">
+                  <button class="edge-style-btn active" data-style="none" type="button">${t('edges.none', 'None')}</button>
+                  <button class="edge-style-btn" data-style="fillet" type="button">${t('edges.fillet', 'Fillet')}</button>
+                  <button class="edge-style-btn" data-style="chamfer" type="button">${t('edges.chamfer', 'Chamfer')}</button>
                 </div>
-                <div class="edge-size-btns" data-edge="${t}" style="gap:8px; margin-bottom: 12px; display: none;">
+                <div class="edge-size-btns" data-edge="${target}" style="gap:8px; margin-bottom: 12px; display: none;">
                   <button class="btn edge-size-minus" type="button" style="flex:1;">-</button>
                   <button class="btn edge-size-plus" type="button" style="flex:1;">+</button>
                 </div>
