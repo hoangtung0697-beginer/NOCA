@@ -1317,6 +1317,33 @@ button.fil-chip:active {
 }
 
 /* Floating color selector popover styles */
+.part-context-menu {
+  position: fixed;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  padding: 6px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 160px;
+}
+.part-context-menu button {
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+.part-context-menu button:hover {
+  background: var(--panel-2);
+}
+
 .color-popover {
   position: fixed;
   background: var(--panel);

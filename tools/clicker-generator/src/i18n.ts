@@ -77,6 +77,8 @@ const VI: Record<string, string> = {
   'swatch.filament': 'filament',
   'swatch.customColor': 'Màu tùy chỉnh',
   'filament.customColor': 'Màu tùy chỉnh',
+  'contextMenu.adjustColor': 'Điều chỉnh màu',
+  'contextMenu.adjustSize': 'Điều chỉnh kích thước',
 
   'keychain.label': 'Móc khóa',
   'keychain.tip': 'Thêm một móc để có thể gắn clicker vào chùm chìa khóa.',

@@ -16,8 +16,10 @@ export interface Viewer {
   setSwitchPlacements(placements: SwitchPlacement[]): void;
   renderToPng(): Promise<Blob | null>;
   setTheme(theme: string): void;
-  /** Register a callback fired when the user clicks a colored part of the model, or null if clicking empty space. */
-  onPartPick(cb: (index: number | null, clientX: number, clientY: number, shiftKey: boolean) => void): void;
+  /** Register a callback fired when the user left-clicks a colored part of the model (selection only), or null if clicking empty space. */
+  onPartPick(cb: (index: number | null, shiftKey: boolean) => void): void;
+  /** Register a callback fired when the user right-clicks a colored part of the model (opens the color/size context menu). */
+  onPartContextMenu(cb: (index: number, clientX: number, clientY: number) => void): void;
   /** Live-recolor a single part's material (no rebuild — geometry is unchanged). */
   setPartColor(index: number, rgb: RGB): void;
   /** Mark a part as the active selection (highlight), or null to clear. */
@@ -153,10 +155,12 @@ export function createViewer(container: HTMLElement): Viewer {
   const HILITE = new THREE.Color(0x3b82f6);
   let hoveredIndex: number | null = null;
   let selectedIndices: number[] = [];
-  let pickCb: ((index: number | null, clientX: number, clientY: number, shiftKey: boolean) => void) | null = null;
+  let pickCb: ((index: number | null, shiftKey: boolean) => void) | null = null;
+  let contextCb: ((index: number, clientX: number, clientY: number) => void) | null = null;
   let downX = 0;
   let downY = 0;
   let downT = 0;
+  let downButton = 0;
 
   let outlineMesh: THREE.LineSegments | null = null;
   const outlineMaterial = new THREE.LineBasicMaterial({ color: 0x3b82f6, depthTest: false });
@@ -438,8 +442,10 @@ export function createViewer(container: HTMLElement): Viewer {
     downX = e.clientX;
     downY = e.clientY;
     downT = performance.now();
+    downButton = e.button;
   };
   const onPointerUp = (e: PointerEvent) => {
+    if (downButton !== 0) return; // only the left button selects — right-click opens the context menu instead
     // Only a tap (not an orbit drag) counts as a part click.
     if (Math.hypot(e.clientX - downX, e.clientY - downY) > 5) return;
     if (performance.now() - downT > 500) return;
@@ -449,7 +455,7 @@ export function createViewer(container: HTMLElement): Viewer {
     if (idx === null) {
       selectedIndices = [];
       applyHighlight();
-      pickCb?.(null, e.clientX, e.clientY, e.shiftKey);
+      pickCb?.(null, e.shiftKey);
       return;
     }
 
@@ -462,15 +468,31 @@ export function createViewer(container: HTMLElement): Viewer {
       selectedIndices = [idx];
     }
     applyHighlight();
-    pickCb?.(idx, e.clientX, e.clientY, e.shiftKey);
+    pickCb?.(idx, e.shiftKey);
+  };
+  const onContextMenu = (e: MouseEvent) => {
+    const idx = pickIndexAt(e.clientX, e.clientY);
+    if (idx === null) return; // let the browser's default menu show over empty space
+    e.preventDefault();
+    // Right-clicking a part that isn't already selected replaces the selection with it;
+    // right-clicking within an existing multi-selection keeps it (the menu acts on all of it).
+    if (!selectedIndices.includes(idx)) {
+      selectedIndices = [idx];
+      applyHighlight();
+    }
+    contextCb?.(idx, e.clientX, e.clientY);
   };
   renderer.domElement.addEventListener('pointermove', onPointerMove);
   renderer.domElement.addEventListener('pointerleave', onPointerLeave);
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
   renderer.domElement.addEventListener('pointerup', onPointerUp);
+  renderer.domElement.addEventListener('contextmenu', onContextMenu);
 
-  function onPartPick(cb: (index: number | null, clientX: number, clientY: number, shiftKey: boolean) => void) {
+  function onPartPick(cb: (index: number | null, shiftKey: boolean) => void) {
     pickCb = cb;
+  }
+  function onPartContextMenu(cb: (index: number, clientX: number, clientY: number) => void) {
+    contextCb = cb;
   }
   function setPartColor(index: number, rgb: RGB) {
     const m = materials[index] as THREE.MeshStandardMaterial | undefined;
@@ -497,6 +519,7 @@ export function createViewer(container: HTMLElement): Viewer {
     renderer.domElement.removeEventListener('pointerleave', onPointerLeave);
     renderer.domElement.removeEventListener('pointerdown', onPointerDown);
     renderer.domElement.removeEventListener('pointerup', onPointerUp);
+    renderer.domElement.removeEventListener('contextmenu', onContextMenu);
     clearGroup(capGroup);
     clearGroup(bodyGroup);
     clearSwitchMeshes();
@@ -523,6 +546,7 @@ export function createViewer(container: HTMLElement): Viewer {
     renderToPng,
     setTheme,
     onPartPick,
+    onPartContextMenu,
     setPartColor,
     highlightPart,
     highlightParts,

@@ -1578,6 +1578,57 @@ export function createUi(
   // Robust floating swatch picker. Anchored at (clientX, clientY) — typically the
   // cursor or a trigger element's corner — then measured and clamped so it always
   // stays fully on-screen (the old version could land in the top-left corner).
+  // Right-click on a selected part: a small menu offering the two things you can
+  // adjust about it — its color, or its size (extrude height).
+  function showPartContextMenu(
+    clientX: number,
+    clientY: number,
+    handlers: { onAdjustColor: () => void; onAdjustSize: () => void }
+  ) {
+    document.getElementById('sbPartContextMenu')?.remove();
+
+    const menu = document.createElement('div');
+    menu.id = 'sbPartContextMenu';
+    menu.className = 'part-context-menu';
+    document.body.appendChild(menu);
+
+    let done = false;
+    const close = () => {
+      if (done) return;
+      done = true;
+      menu.remove();
+      document.removeEventListener('mousedown', dismiss);
+    };
+
+    const colorBtn = document.createElement('button');
+    colorBtn.type = 'button';
+    colorBtn.textContent = t('contextMenu.adjustColor', 'Adjust color');
+    colorBtn.addEventListener('click', () => {
+      close();
+      handlers.onAdjustColor();
+    });
+    menu.appendChild(colorBtn);
+
+    const sizeBtn = document.createElement('button');
+    sizeBtn.type = 'button';
+    sizeBtn.textContent = t('contextMenu.adjustSize', 'Adjust size');
+    sizeBtn.addEventListener('click', () => {
+      close();
+      handlers.onAdjustSize();
+    });
+    menu.appendChild(sizeBtn);
+
+    const w = menu.offsetWidth || 160;
+    const h = menu.offsetHeight || 80;
+    menu.style.left = `${Math.max(8, Math.min(clientX, window.innerWidth - w - 8))}px`;
+    menu.style.top = `${Math.max(8, Math.min(clientY, window.innerHeight - h - 8))}px`;
+
+    const dismiss = (e: MouseEvent) => {
+      if (!menu.contains(e.target as Node)) close();
+    };
+    setTimeout(() => document.addEventListener('mousedown', dismiss), 50);
+  }
+
   function showColorPopoverAt(
     clientX: number,
     clientY: number,
@@ -2051,11 +2102,12 @@ export function createUi(
     }
   }
 
-  return { 
-    update, 
-    hexRgb, 
-    showColorPopoverAt, 
-    addUploadedSvg, 
+  return {
+    update,
+    hexRgb,
+    showColorPopoverAt,
+    showPartContextMenu,
+    addUploadedSvg,
     addFontOption: (font: FontOption) => { 
       addFontOption(font); 
       // Click the newly added font to select it

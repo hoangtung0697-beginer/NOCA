@@ -534,8 +534,9 @@ SAMPLES[0].load().then((img) => {
   console.error('Failed to load default image', err);
 });
 
-// ---- Click a colored region on the 3D model to recolor it (live, no rebuild) ----
-viewer.onPartPick((index, clientX, clientY, shiftKey) => {
+// ---- Click a part on the 3D model to select it (selection only — no popup). ----
+// Adjusting it happens via right-click, see onPartContextMenu below.
+viewer.onPartPick((index, shiftKey) => {
   const s = store.get();
 
   // Empty space clears the selection (all modes).
@@ -547,27 +548,7 @@ viewer.onPartPick((index, clientX, clientY, shiftKey) => {
   const partName = latestParts[index]?.name;
   if (!partName) return;
 
-  if (s.editMode === 'color') {
-    // Color mode: single target. Open the swatch picker for the clicked color and
-    // recolor its whole group; clear the highlight on close so the true color shows.
-    store.set({ selectedParts: [partName] });
-    const part = latestParts[index];
-    if (!part) return;
-    const target = partColorTarget(part.name);
-    if (!target) return;
-    const options: RGB[] =
-      s.colorMode === 'limited' && s.limitedColors.length > 0
-        ? s.limitedColors
-        : FILAMENTS.map(([, hex]) => hexToRgb(hex));
-    ui.showColorPopoverAt(clientX, clientY, rgbToHex(part.colorRgb), options, {
-      onSelect: (hex) => applyModelRecolor(target, hexToRgb(hex), index),
-      onClose: () => store.set({ selectedParts: [] }),
-    });
-    return;
-  }
-
-  // Extrude / edges: unified multi-selection — shift toggles a part in/out, a plain
-  // click selects one. The floating panels act on every selected part.
+  // Shift toggles a part in/out of a multi-selection; a plain click selects just it.
   let nextSelected = s.selectedParts.slice();
   if (shiftKey) {
     nextSelected = nextSelected.includes(partName)
@@ -577,6 +558,32 @@ viewer.onPartPick((index, clientX, clientY, shiftKey) => {
     nextSelected = [partName];
   }
   store.set({ selectedParts: nextSelected });
+});
+
+// ---- Right-click a selected part: draft context menu with "Adjust color" / "Adjust size". ----
+viewer.onPartContextMenu((index, clientX, clientY) => {
+  const part = latestParts[index];
+  if (!part) return;
+  store.set({ selectedParts: [part.name] });
+
+  ui.showPartContextMenu(clientX, clientY, {
+    onAdjustColor: () => {
+      const s = store.get();
+      const target = partColorTarget(part.name);
+      if (!target) return;
+      const options: RGB[] =
+        s.colorMode === 'limited' && s.limitedColors.length > 0
+          ? s.limitedColors
+          : FILAMENTS.map(([, hex]) => hexToRgb(hex));
+      ui.showColorPopoverAt(clientX, clientY, rgbToHex(part.colorRgb), options, {
+        onSelect: (hex) => applyModelRecolor(target, hexToRgb(hex), index),
+        onClose: () => store.set({ selectedParts: [] }),
+      });
+    },
+    onAdjustSize: () => {
+      store.set({ editMode: 'extrude' });
+    },
+  });
 });
 
 function partColorTarget(name: string): ColorTarget | null {
